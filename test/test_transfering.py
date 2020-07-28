@@ -6,6 +6,7 @@ from test_meshing import _1d2d_mesh, _1d3d_mesh
 
 import dolfin as df
 import numpy as np
+import pytest
 
 
 def _vertex_transfer(f, embedding):
@@ -65,12 +66,12 @@ def _edge_transfer(f, embedding):
 def test_line_2d():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('size_t', mesh1d, 1, 0)
     f.array()[:] = np.random.randint(1, 5, f.size())
@@ -81,12 +82,12 @@ def test_line_2d():
 def test_point_2d():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('size_t', mesh1d, 1, 0)
     f.array()[:] = np.random.randint(1, 5, f.size())
@@ -97,12 +98,12 @@ def test_point_2d():
 def test_line_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('size_t', mesh1d, 1, 0)
     f.array()[:] = np.random.randint(1, 5, f.size())
@@ -113,12 +114,12 @@ def test_line_3d():
 def test_point_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('size_t', mesh1d, 1, 0)
     f.array()[:] = np.random.randint(1, 5, f.size())
@@ -130,12 +131,12 @@ def test_point_3d():
 def test_line_2d_vertex():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('double', mesh1d, 0, 0)
     f.array()[:] = np.linalg.norm(mesh1d.coordinates(), np.inf, axis=1)
@@ -146,12 +147,12 @@ def test_line_2d_vertex():
 def test_point_2d_vertex():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('double', mesh1d, 0, 0)
     f.array()[:] = np.linalg.norm(mesh1d.coordinates(), np.inf, axis=1)
@@ -162,12 +163,12 @@ def test_point_2d_vertex():
 def test_line_3d_vertex():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
     f = df.MeshFunction('double', mesh1d, 0, 0)
     f.array()[:] = mesh1d.coordinates()[:, 0]
@@ -178,12 +179,12 @@ def test_line_3d_vertex():
 def test_point_3d_vertex():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
     
     f = df.MeshFunction('double', mesh1d, 0, 0)
     f.array()[:] = mesh1d.coordinates()[:, 0]

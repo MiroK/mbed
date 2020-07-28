@@ -2,6 +2,7 @@ from mbed.meshing import embed_mesh1d
 from mbed.utils import is_on_line
 import dolfin as df
 import numpy as np
+import pytest
 
 
 def _embed_vertex(line_mesh, embedding_res):
@@ -92,14 +93,14 @@ def _1d3d_mesh(n):
 def test_line_2d():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
-    assert not status
+    # assert not status
     assert _embed_vertex(mesh1d, embedding)
     assert _embed_edgecolor(mesh1d, embedding)
     assert _embed_edgeencode(mesh1d, embedding)
@@ -108,14 +109,14 @@ def test_line_2d():
 def test_point_2d():
     '''Not skew'''
     mesh1d = _1d2d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
-    assert not status
+    # assert not status
     assert _embed_vertex(mesh1d, embedding)
     assert _embed_edgecolor(mesh1d, embedding)
     assert _embed_edgeencode(mesh1d, embedding)
@@ -124,14 +125,14 @@ def test_point_2d():
 def test_line_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_lines',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
 
-    assert not status
+    # assert not status
     assert _embed_vertex(mesh1d, embedding)
     assert _embed_edgecolor(mesh1d, embedding)
     assert _embed_edgeencode(mesh1d, embedding)
@@ -140,14 +141,14 @@ def test_line_3d():
 def test_point_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
-    embedding, status = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     debug=False,
-                                     save_geo='')
-
-    assert not status
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
+    
+    # assert not status
     assert _embed_vertex(mesh1d, embedding)
     assert _embed_edgecolor(mesh1d, embedding)
     assert _embed_edgeencode(mesh1d, embedding)
@@ -156,14 +157,15 @@ def test_point_3d():
 def test_point_skew_2d():
     '''Not necesarily conform'''
     mesh1d = _1d2d_mesh(4)
-    embedding, skewed = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     niters=1,
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             niters=1,
+                             debug=False,
+                             save_geo='')
 
+    skewed = embedding.nc_edge_encoding.as_vertices
     assert skewed
 
     x = embedding.embedding_mesh.coordinates()
@@ -198,14 +200,15 @@ def test_point_skew_2d():
 def test_point_skew_3d():
     '''Not necesarily conform'''
     mesh1d = _1d3d_mesh(4)
-    embedding, skewed = embed_mesh1d(mesh1d,
-                                     padding=0.1, 
-                                     how='as_points',
-                                     gmsh_args=[],
-                                     niters=1,
-                                     debug=False,
-                                     save_geo='')
+    embedding = embed_mesh1d(mesh1d,
+                             padding=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             niters=1,
+                             debug=False,
+                             save_geo='')
 
+    skewed = embedding.nc_edge_encoding.as_vertices
     assert skewed
 
     x = embedding.embedding_mesh.coordinates()

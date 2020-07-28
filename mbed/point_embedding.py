@@ -34,7 +34,7 @@ def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
         x, topology = _embed_edges(topology, x, needs_embedding)
 
 
-    skew_embedded_edges = defaultdict(list)
+    skew_embed_vertex = defaultdict(list)
     # We capitulate and make approximations;    
     if not converged:
         embedding_mesh, vmap = _embed_points(model, x, padding, **kwargs)
@@ -45,7 +45,7 @@ def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
         topology = [list(vmap[edge]) for edge in topology]
         # An edges that need embedding is a branch with terminal vertices - so the
         # idea is to insert the interior path vertices
-        topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embedded_edges)
+        topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embed_vertex)
     else:
         # Since the original 1d mesh likely has been changed we give
         # topology wrt to node numbering of the embedding mesh
@@ -65,12 +65,19 @@ def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
             edge_f[edge_index] = tag
             the_edge.append(edge_index)
         topology_as_edge.append(the_edge)
+
+    encode_edge = lambda path: [edge_lookup[tuple(sorted(e))] for e in zip(path[:-1], path[1:])]
+    # Finally encode skew edges as edges
+    print skew_embed_vertex
+    skew_embed_edge = {k: map(encode_edge, edge_as_vertex)
+                       for k, edge_as_vertex in skew_embed_vertex.items()}
     
     return utils.LineMeshEmbedding(embedding_mesh,
                                    # The others were not part of original data
                                    vmap[:mesh1d.num_vertices()],  
                                    edge_f,
-                                   utils.EdgeMap(topology, topology_as_edge)), skew_embedded_edges
+                                   utils.EdgeMap(topology, topology_as_edge),
+                                   utils.EdgeMap(skew_embed_vertex, skew_embed_edge))
 
 
 def _force_embed_edges(topology, mesh, edges2refine, skewed):

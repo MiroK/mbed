@@ -14,10 +14,14 @@ import dolfin as df
 LineMeshEmbedding = namedtuple('LineMeshEmebdding', ('embedding_mesh',
                                                      'vertex_map',
                                                      'edge_coloring',
-                                                     'edge_encoding'))
+                                                     'edge_encoding',
+                                                     'nc_edge_encoding'))
 # map[i].as_vertices is the i-th edge of the old mesh given as sequence of vertices
 # in the embedding mesh
 EdgeMap = namedtuple('EdgeMap', ('as_vertices', 'as_edges'))
+# Edges that are not embedded properly (in a sense that segment/cell in 1d
+# is make of segments in embedding mesh which are not on the same line) are
+# recorded in `nc_edge_encoding`
 
 
 def between(x, (x0, x1), tol):

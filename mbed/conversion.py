@@ -124,16 +124,6 @@ def tag_entities(model, mesh, dim, tag, node_map, array):
         node_tags *= 0
     return array
 
-
-# FIXME: 
-#        in embedding x should always differ from bbox
-#        embedding in 2d (line in surface)
-#                         test embedding algo
-#                     2d with coarse edge so we get possibly ^ from --
-#                         retest embedding algo -> how to seed then
-#                     check in 3d
-#
-
 # --------------------------------------------------------------------
 
 if __name__ == '__main__':
