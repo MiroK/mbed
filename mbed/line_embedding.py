@@ -76,6 +76,6 @@ def line_embed_mesh1d(model, mesh1d, padding, **kwargs):
             for i, n in enumerate(nodes[1:-1], 1):
                 edge.insert(i, n)
     # Combine
-    edge_encoding = meshing.EdgeMap(edge_encoding, topology_as_edge)    
+    edge_encoding = utils.EdgeMap(edge_encoding, topology_as_edge)    
                 
-    return meshing.LineMeshEmbedding(embedding_mesh, vertex_map, edge_f, edge_encoding)
+    return utils.LineMeshEmbedding(embedding_mesh, vertex_map, edge_f, edge_encoding), {}
