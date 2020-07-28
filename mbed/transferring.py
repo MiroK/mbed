@@ -1,4 +1,7 @@
-def transfer_function(f, embedding):
+import numpy as np
+
+
+def transfer_mesh_function(f, embedding):
     '''Transfer edge or vertex function from line mesh'''
     mesh = f.mesh()
 
