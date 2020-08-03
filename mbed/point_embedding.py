@@ -18,7 +18,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     e2v = mesh1d.topology()(1, 0)
     topology = [list(e2v(e)) for e in range(mesh1d.num_entities(1))]
 
-    converged = False
+    converged, nneeds = False, mesh1d.num_cells()
     niters = kwargs.get('niters', 5)
     base_geo = kwargs['save_geo']
     for k in range(niters):
@@ -33,7 +33,8 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
-        utils.print_green('# edges need embedding %d' % sum(map(len, needs_embedding)))
+        utils.print_green('# edges need embedding %d (was %d)' % (sum(map(len, needs_embedding)), nneeds))
+        nneeds = sum(map(len, needs_embedding))
         converged = not any(needs_embedding)
 
         if kwargs['debug'] and k == niters - 1:
@@ -102,6 +103,8 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     kwargs['save_embedding'] and utils.save_embedding(ans, kwargs['save_embedding'])
 
+    return ans
+
 
 def _force_embed_edges(topology, mesh, edges2refine, skewed):
     '''
@@ -115,10 +118,12 @@ def _force_embed_edges(topology, mesh, edges2refine, skewed):
     # physical distance of nodes
     x = mesh.coordinates()
     edge_lengths = np.linalg.norm(x[edges[:, 0]] - x[edges[:, 1]], 2, axis=1)
-    
+
+    t = utils.Timer('Networkx graph creation')
     g = nx.Graph()
     for edge, weight in zip(edges, edge_lengths):
         g.add_edge(*edge, weight=weight)
+    t.done()
     
     for index1d, (edge_vertices, slice_indices) in enumerate(zip(topology, edges2refine)):
         if not slice_indices: continue
