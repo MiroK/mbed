@@ -4,14 +4,11 @@ import utils
 import gmsh
 
 
-def line_embed_mesh1d(model, mesh1d, padding, **kwargs):
+def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     '''Embed mesh1d in Xd square mesh'''
-    x0 = mesh1d.coordinates().min(axis=0)
-    x1 = mesh1d.coordinates().max(axis=0)
-
-    tdim = len(x0)
+    npoints, tdim = mesh1d.coordinates().shape
     # Figure out how to bound it
-    counts = utils.hypercube(model, x0, x1, padding)
+    counts = bounding_shape.create_volume(model, mesh1d.coordinates())
     
     # In gmsh Point(4) will be returned as fourth node
     vertex_map = []  # mesh_1d.x[i] is embedding_mesh[vertex_map[i]]

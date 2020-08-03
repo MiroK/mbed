@@ -7,10 +7,10 @@ import utils
 import gmsh
 
 
-def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
+def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     '''
-    Embed points of mesh1d into Xd padded hypercube. An attempt is made 
-    to insert intermediate points so that also edges are embedded
+    Embed points of mesh1d into Xd bounding shape. An attempt is made 
+    to insert intermediate points so that also edges are embedded 
     '''
     x = mesh1d.coordinates()
     
@@ -22,7 +22,7 @@ def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
     for k in range(kwargs.get('niters', 5)):
         # Some mesh which embeds points but where these points are not
         # necessarily edges
-        embedding_mesh, vmap = _embed_points(model, x, padding, **kwargs)
+        embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
@@ -37,7 +37,7 @@ def point_embed_mesh1d(model, mesh1d, padding, **kwargs):
     skew_embed_vertex = defaultdict(list)
     # We capitulate and make approximations;    
     if not converged:
-        embedding_mesh, vmap = _embed_points(model, x, padding, **kwargs)
+        embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
         assert _embeds_points(embedding_mesh, x, vmap)
 
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
@@ -176,12 +176,12 @@ def _embeds_points(mesh, x, vmap):
     return max(np.linalg.norm(mesh.coordinates()[vmap] - x, 2, axis=1)) < 1E-13
 
 
-def _embed_points(model, x, padding, **kwargs):
+def _embed_points(model, x, bounding_shape, **kwargs):
     '''Hypercube mesh with vertices x'''
     npoints, tdim = x.shape
 
     # Figure out how to bound it
-    counts = utils.hypercube(model, x.min(axis=0), x.max(axis=0), padding)
+    counts = bounding_shape.create_volume(model, x)
     
     # In gmsh Point(4) will be returned as fourth node
     vertex_map = []  # mesh_1d.x[i] is embedding_mesh[vertex_map[i]]

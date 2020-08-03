@@ -24,6 +24,11 @@ EdgeMap = namedtuple('EdgeMap', ('as_vertices', 'as_edges'))
 # recorded in `nc_edge_encoding`
 
 
+def is_number(num):
+    '''Number type'''
+    return isinstance(num, (int, float, np.number))
+
+                      
 def between(x, (x0, x1), tol):
     '''Approx x0 <= x <= x1'''
     assert x0 < x1
@@ -67,14 +72,9 @@ def to_P1_function(f):
     return g
 
 
-def hypercube(model, xmin, xmax, padding):
-    '''Bounding box hypercube [x0, x1] will be increased by padding'''
+def hypercube(model, xmin, xmax):
+    '''Bounding box hypercube [x0, x1]'''
     assert np.all(xmax > xmin)
-
-    padding = padding*(xmax - xmin)
-
-    xmin = xmin - 0.5*padding
-    xmax = xmax + 0.5*padding
 
     if len(xmin) == 3:
         x0, y0, z0 = xmin

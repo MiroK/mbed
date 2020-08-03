@@ -67,7 +67,7 @@ def test_line_2d():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_lines',
                              gmsh_args=[],
                              debug=False,
@@ -83,7 +83,7 @@ def test_point_2d():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_points',
                              gmsh_args=[],
                              debug=False,
@@ -99,7 +99,7 @@ def test_line_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_lines',
                              gmsh_args=[],
                              debug=False,
@@ -115,7 +115,7 @@ def test_point_3d():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_points',
                              gmsh_args=[],
                              debug=False,
@@ -132,7 +132,7 @@ def test_line_2d_vertex():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_lines',
                              gmsh_args=[],
                              debug=False,
@@ -148,7 +148,7 @@ def test_point_2d_vertex():
     '''Not skew'''    
     mesh1d = _1d2d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_points',
                              gmsh_args=[],
                              debug=False,
@@ -164,7 +164,7 @@ def test_line_3d_vertex():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_lines',
                              gmsh_args=[],
                              debug=False,
@@ -180,7 +180,7 @@ def test_point_3d_vertex():
     '''Not skew'''    
     mesh1d = _1d3d_mesh(3)
     embedding = embed_mesh1d(mesh1d,
-                             padding=0.1, 
+                             bounding_shape=0.1, 
                              how='as_points',
                              gmsh_args=[],
                              debug=False,
