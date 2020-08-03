@@ -2,6 +2,7 @@ import numpy as np
 import conversion
 import utils
 import gmsh
+import os
 
 
 def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
@@ -36,12 +37,12 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     model.mesh.embed(1, lines, tdim, counts[tdim])
     model.geo.synchronize()
 
-    if kwargs.get('debug', False):
+    if kwargs['debug']:
         gmsh.fltk.initialize()
         gmsh.fltk.run()
 
-    if kwargs.get('save_geo', ''):
-        gmsh.write('%s.geo_unrolled' % kwargs.get('save_geo'))
+    print(kwargs['save_geo'])
+    kwargs['save_geo'] and gmsh.write('%s.geo_unrolled' % kwargs['save_geo'])
 
     model.mesh.generate(tdim)
     embedding_mesh, mesh_fs = conversion.mesh_from_gmshModel(model,
@@ -75,5 +76,10 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     # Combine
     edge_encoding = utils.EdgeMap(edge_encoding, topology_as_edge)    
     skew_encoding = utils.EdgeMap({}, {})
+
+    ans = utils.LineMeshEmbedding(embedding_mesh, vertex_map, edge_f, edge_encoding, skew_encoding)
     
-    return utils.LineMeshEmbedding(embedding_mesh, vertex_map, edge_f, edge_encoding, skew_encoding)
+    kwargs['save_embedding'] and utils.save_embedding(ans, kwargs['save_embedding'])
+
+    return ans
+

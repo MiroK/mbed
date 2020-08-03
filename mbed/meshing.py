@@ -13,7 +13,7 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
     Embed 1d in Xd mesh Xd padded hypercube. Embedding can be as 
     points / lines (these are gmsh options). 
 
-    Returns: LineMeshEmbedding, [status]
+    Returns: LineMeshEmbedding
     '''
     assert mesh1d.topology().dim() == 1
     assert mesh1d.geometry().dim() > 1
@@ -33,6 +33,22 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
         bounding_shape = BoundingBox(bounding_shape)
         return embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs)
 
+    if 'debug' not in kwargs:
+        kwargs['debug'] = False
+        
+    if 'save_embedding' not in kwargs:
+        kwargs['save_embedding'] = ''
+        kwargs['save_geo'] = ''
+    else:
+        d = kwargs['save_embedding']
+        d and (not os.path.exists(d) and (os.makedirs(d)))
+        
+    if 'save_geo' in kwargs:
+        if kwargs['save_embedding']:
+            kwargs['save_geo'] = os.path.join(kwargs['save_embedding'], kwargs['save_geo'])
+        else:
+            kwargs['save_geo'] = ''
+    
     # At this point the type of bounding shape must check out
     assert isinstance(bounding_shape, BoundingShape)
     # FIXME: we should have that all 1d points are <= bounding shape

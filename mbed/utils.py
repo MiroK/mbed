@@ -201,3 +201,8 @@ def hypercube(model, xmin, xmax):
     last_entity = {0: points[-1], 1: lines[-1], 2: planes[-1]}
 
     return last_entity
+
+
+GREEN = '\033[1;37;32m%s\033[0m'
+RED = '\033[1;37;31m%s\033[0m'
+BLUE = '\033[1;37;34m%s\033[0m'

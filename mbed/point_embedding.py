@@ -19,24 +19,35 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     topology = [list(e2v(e)) for e in range(mesh1d.num_entities(1))]
 
     converged = False
-    for k in range(kwargs.get('niters', 5)):
+    niters = kwargs.get('niters', 5)
+    base_geo = kwargs['save_geo']
+    for k in range(niters):
         # Some mesh which embeds points but where these points are not
         # necessarily edges
+        if base_geo:
+            kwargs['save_geo'] = '_'.join([base_geo, str(k)]) 
+        
         embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
         converged = not any(needs_embedding)
 
+        if kwargs['debug'] and k == niters - 1:
+            gmsh.fltk.initialize()
+            gmsh.fltk.run()
+
         if converged: break
 
         # Insert auxiliary points and retry
         x, topology = _embed_edges(topology, x, needs_embedding)
 
-
     skew_embed_vertex = defaultdict(list)
     # We capitulate and make approximations;    
     if not converged:
+        if base_geo:
+            kwargs['save_geo'] = '_'.join([base_geo, str(niters)]) 
+        
         embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
         assert _embeds_points(embedding_mesh, x, vmap)
 
@@ -68,16 +79,17 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     encode_edge = lambda path: [edge_lookup[tuple(sorted(e))] for e in zip(path[:-1], path[1:])]
     # Finally encode skew edges as edges
-    print skew_embed_vertex
     skew_embed_edge = {k: map(encode_edge, edge_as_vertex)
                        for k, edge_as_vertex in skew_embed_vertex.items()}
     
-    return utils.LineMeshEmbedding(embedding_mesh,
-                                   # The others were not part of original data
-                                   vmap[:mesh1d.num_vertices()],  
-                                   edge_f,
-                                   utils.EdgeMap(topology, topology_as_edge),
-                                   utils.EdgeMap(skew_embed_vertex, skew_embed_edge))
+    ans = utils.LineMeshEmbedding(embedding_mesh,
+                                  # The others were not part of original data
+                                  vmap[:mesh1d.num_vertices()],  
+                                  edge_f,
+                                  utils.EdgeMap(topology, topology_as_edge),
+                                  utils.EdgeMap(skew_embed_vertex, skew_embed_edge))
+
+    kwargs['save_embedding'] and utils.save_embedding(ans, kwargs['save_embedding'])
 
 
 def _force_embed_edges(topology, mesh, edges2refine, skewed):
@@ -195,12 +207,7 @@ def _embed_points(model, x, bounding_shape, **kwargs):
     model.mesh.embed(0, 1+vertex_map, tdim, counts[tdim])
     model.geo.synchronize()
 
-    if kwargs.get('debug', False):
-        gmsh.fltk.initialize()
-        gmsh.fltk.run()
-
-    if kwargs.get('save_geo', ''):
-        gmsh.write('%s.geo_unrolled' % kwargs.get('save_geo'))
+    kwargs['save_geo'] and gmsh.write('%s.geo_unrolled' % kwargs['save_geo'])
 
     model.mesh.generate(tdim)
 

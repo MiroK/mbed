@@ -5,3 +5,6 @@
 *.geo_unrolled
 *.pvd
 *.vtu
+
+/sandbox/*/
+/test/*/
