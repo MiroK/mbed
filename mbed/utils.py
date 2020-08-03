@@ -1,7 +1,7 @@
 from collections import namedtuple
 import numpy as np
 import dolfin as df
-
+import os, pickle
 
 # We want to embed line mesh of Xd vertices `Gamma` into X-d hypercube
 # This might require that the `Gamma` is modified by inserting auxiliary vertices.
@@ -22,6 +22,71 @@ EdgeMap = namedtuple('EdgeMap', ('as_vertices', 'as_edges'))
 # Edges that are not embedded properly (in a sense that segment/cell in 1d
 # is make of segments in embedding mesh which are not on the same line) are
 # recorded in `nc_edge_encoding`
+
+
+def save_embedding(embedding, folder):
+    '''Save embedding
+    folder/mesh.h5    <- embedding_mesh, edge_coloring
+          /vertex_map.txt  <- numpy array of the vertex map
+          /edge_encoding_0.pkl    pickles of the mappings
+          /edge_encoding_1.pkl
+          /nc_edge_encoding_0.pkl
+          /nc_edge_encoding_1.pkl   
+    '''
+    not os.path.exists(folder) and os.makedirs(folder)
+    # Mesh and coloring
+    h5_file = os.path.join(folder, 'mesh.h5')
+    out = df.HDF5File(embedding.embedding_mesh.mpi_comm(),
+                      h5_file,
+                      'w')
+    out.write(embedding.embedding_mesh, 'embedding_mesh')
+    out.write(embedding.edge_coloring, 'edge_coloring')
+
+    # Vertex map
+    np.savetxt(os.path.join(folder, 'vertex_map.txt'),
+               embedding.vertex_map,
+               header='Vertex map')
+
+    # Edges
+    with open(os.path.join(folder, 'edge_encoding_0.pkl'), 'wb') as out:
+        pickle.dump(embedding.edge_encoding.as_vertices, out)
+
+    with open(os.path.join(folder, 'edge_encoding_1.pkl'), 'wb') as out:
+        pickle.dump(embedding.edge_encoding.as_edges, out)
+        
+    # Non-conforming edges
+    with open(os.path.join(folder, 'nc_edge_encoding_0.pkl'), 'wb') as out:
+        pickle.dump(embedding.nc_edge_encoding.as_vertices, out)
+
+    with open(os.path.join(folder, 'nc_edge_encoding_1.pkl'), 'wb') as out:
+        pickle.dump(embedding.nc_edge_encoding.as_edges, out)
+
+    return folder
+
+
+def load_embedding(folder):
+    '''Load embedding'''
+    h5_file = os.path.join(folder, 'mesh.h5')
+    embedding_mesh = df.Mesh()
+    h5 = df.HDF5File(embedding_mesh.mpi_comm(), h5_file, 'r')
+    h5.read(embedding_mesh, 'embedding_mesh', False)
+    
+    edge_coloring = df.MeshFunction('size_t', embedding_mesh, 1, 0)
+    h5.read(edge_coloring, 'edge_coloring')
+
+    vertex_map = np.loadtxt(os.path.join(folder, 'vertex_map.txt'))
+
+    edge_encoding = EdgeMap(pickle.load(open(os.path.join(folder, 'edge_encoding_0.pkl'), 'rb')),
+                            pickle.load(open(os.path.join(folder, 'edge_encoding_1.pkl'), 'rb')))
+
+    nc_edge_encoding = EdgeMap(pickle.load(open(os.path.join(folder, 'nc_edge_encoding_0.pkl'), 'rb')),
+                               pickle.load(open(os.path.join(folder, 'nc_edge_encoding_1.pkl'), 'rb')))
+
+    return LineMeshEmbedding(embedding_mesh,
+                             vertex_map,
+                             edge_coloring,
+                             edge_encoding,
+                             nc_edge_encoding)
 
 
 def is_number(num):

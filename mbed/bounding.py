@@ -28,6 +28,7 @@ class STLShape(BoundingShape):
 
     def is_inside(self, mesh1d, x, model=None, tol=1E-10):
         '''Is x stricly inside the bounding volume'''
+        # FIXME
         return True
 
     def create_volume(self, model, x):
