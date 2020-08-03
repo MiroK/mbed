@@ -26,11 +26,14 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         # necessarily edges
         if base_geo:
             kwargs['save_geo'] = '_'.join([base_geo, str(k)]) 
-        
+        t = utils.Timer('%d-th iteration of %d point embedding' % (k, len(x)))
         embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
+        t.done()
+        
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
+        utils.print_green('# edges need embedding %d' % sum(map(len, needs_embedding)))
         converged = not any(needs_embedding)
 
         if kwargs['debug'] and k == niters - 1:
@@ -40,11 +43,15 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         if converged: break
 
         # Insert auxiliary points and retry
+        t = utils.Timer('%d-th iteration of point insert' % k)        
         x, topology = _embed_edges(topology, x, needs_embedding)
+        t.done()
+        utils.print_green('# num points increased to %d' % len(x))
 
     skew_embed_vertex = defaultdict(list)
     # We capitulate and make approximations;    
     if not converged:
+        utils.print_red('Falling back to non-conforming `embedding`')
         if base_geo:
             kwargs['save_geo'] = '_'.join([base_geo, str(niters)]) 
         
@@ -56,12 +63,15 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         topology = [list(vmap[edge]) for edge in topology]
         # An edges that need embedding is a branch with terminal vertices - so the
         # idea is to insert the interior path vertices
+        t = utils.Timer('Force embedding edges')
         topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embed_vertex)
+        t.done()
     else:
         # Since the original 1d mesh likely has been changed we give
         # topology wrt to node numbering of the embedding mesh
         topology = [list(vmap[edge]) for edge in topology]
-        
+
+    t = utils.Timer('Fishing for edges')
     # Need to color the edge function;
     embedding_mesh.init(1, 0)
     e2v = embedding_mesh.topology()(1, 0)
@@ -81,6 +91,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     # Finally encode skew edges as edges
     skew_embed_edge = {k: map(encode_edge, edge_as_vertex)
                        for k, edge_as_vertex in skew_embed_vertex.items()}
+    t.done()
     
     ans = utils.LineMeshEmbedding(embedding_mesh,
                                   # The others were not part of original data

@@ -7,6 +7,7 @@ import os
 
 def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     '''Embed mesh1d in Xd square mesh'''
+    time_model = utils.Timer('Line embedding model definition')
     npoints, tdim = mesh1d.coordinates().shape
     # Figure out how to bound it
     counts = bounding_shape.create_volume(model, mesh1d.coordinates())
@@ -36,20 +37,27 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     model.geo.synchronize()
     model.mesh.embed(1, lines, tdim, counts[tdim])
     model.geo.synchronize()
-
+    # --
+    time_model.done()
+    
     if kwargs['debug']:
         gmsh.fltk.initialize()
         gmsh.fltk.run()
 
-    print(kwargs['save_geo'])
     kwargs['save_geo'] and gmsh.write('%s.geo_unrolled' % kwargs['save_geo'])
 
+    time_gen = utils.Timer('Generation line embedded mesh')
     model.mesh.generate(tdim)
+    time_gen.done()
+
+    time_conv = utils.Timer('Mesh conversion')
     embedding_mesh, mesh_fs = conversion.mesh_from_gmshModel(model,
                                                              include_mesh_functions=1)
+    time_conv.done()
     
     gmsh.clear()
 
+    time_edge_encode = utils.Timer('Fishing for embedded edges')    
     edge_f = mesh_fs[1]
     edge_values =  edge_f.array()
 
@@ -73,6 +81,8 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
             # Insder them<
             for i, n in enumerate(nodes[1:-1], 1):
                 edge.insert(i, n)
+    time_edge_encode.done()
+    
     # Combine
     edge_encoding = utils.EdgeMap(edge_encoding, topology_as_edge)    
     skew_encoding = utils.EdgeMap({}, {})

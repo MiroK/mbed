@@ -1,7 +1,9 @@
+from __future__ import print_function
 from collections import namedtuple
+import os, pickle, time
 import numpy as np
 import dolfin as df
-import os, pickle
+
 
 # We want to embed line mesh of Xd vertices `Gamma` into X-d hypercube
 # This might require that the `Gamma` is modified by inserting auxiliary vertices.
@@ -203,6 +205,30 @@ def hypercube(model, xmin, xmax):
     return last_entity
 
 
-GREEN = '\033[1;37;32m%s\033[0m'
-RED = '\033[1;37;31m%s\033[0m'
-BLUE = '\033[1;37;34m%s\033[0m'
+def print_red(value, *values):
+    RED = '\033[1;37;31m%s\033[0m'
+    values = (value, ) + values    
+    print(*[RED % v for v in values], sep=' ')
+
+
+def print_green(value, *values):
+    GREEN = '\033[1;37;32m%s\033[0m'
+    values = (value, ) + values    
+    print(*[GREEN % v for v in values], sep=' ')
+
+
+def print_blue(value, *values):
+    BLUE = '\033[1;37;34m%s\033[0m'
+    values = (value, ) + values
+    print(*[BLUE % v for v in values], sep=' ')
+
+
+class Timer(object):
+    def __init__(self, message, parent=None):
+        self.message = message
+        self.indent = 0 if parent is None else 1+parent.indent
+        self.t0 = time.time()
+        print_blue('\t'*self.indent, 'Starting', self.message)
+
+    def done(self):
+        print_blue('\t'*self.indent, 'Finnished', self.message, 'in %g seconds' % (time.time() - self.t0))

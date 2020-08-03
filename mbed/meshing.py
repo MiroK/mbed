@@ -1,6 +1,6 @@
 import mbed.point_embedding as point
 import mbed.line_embedding as line
-from mbed.utils import is_number
+from mbed.utils import *
 from mbed.bounding import *
 
 from collections import namedtuple
@@ -48,7 +48,10 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
             kwargs['save_geo'] = os.path.join(kwargs['save_embedding'], kwargs['save_geo'])
         else:
             kwargs['save_geo'] = ''
-    
+
+    print_blue('Emebdding %d vertices and %d edges in R^%d' % (mesh1d.num_vertices(),
+                                                               mesh1d.num_cells(),
+                                                               mesh1d.geometry().dim()))
     # At this point the type of bounding shape must check out
     assert isinstance(bounding_shape, BoundingShape)
     # FIXME: we should have that all 1d points are <= bounding shape
