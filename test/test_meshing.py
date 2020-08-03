@@ -238,3 +238,78 @@ def test_point_skew_3d():
             if len(mids) > 1:
                 path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
                 assert v2 == min(mids, key=path_length)
+
+
+def test_line_stl_3d():
+    '''Not skew'''    
+    mesh1d = _1d3d_mesh(3)
+    embedding = embed_mesh1d(mesh1d,
+                             bounding_shape='box.stl', 
+                             how='as_lines',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
+
+    # assert not status
+    assert _embed_vertex(mesh1d, embedding)
+    assert _embed_edgecolor(mesh1d, embedding)
+    assert _embed_edgeencode(mesh1d, embedding)
+
+
+def test_point_stl_3d():
+    '''Not skew'''    
+    mesh1d = _1d3d_mesh(3)
+    embedding = embed_mesh1d(mesh1d,
+                             bounding_shape='box.stl', 
+                             how='as_points',
+                             gmsh_args=[],
+                             debug=False,
+                             save_geo='')
+
+    # assert not status
+    assert _embed_vertex(mesh1d, embedding)
+    assert _embed_edgecolor(mesh1d, embedding)
+    assert _embed_edgeencode(mesh1d, embedding)
+
+
+def test_point_skew_stl_3d():
+    '''Not necesarily conform'''
+    mesh1d = _1d3d_mesh(4)
+    embedding = embed_mesh1d(mesh1d,
+                             bounding_shape='box.stl', 
+                             how='as_points',
+                             gmsh_args=[],
+                             niters=1,
+                             debug=False,
+                             save_geo='')
+
+    skewed = embedding.nc_edge_encoding.as_vertices
+    assert skewed
+
+    x = embedding.embedding_mesh.coordinates()
+
+    embedding.embedding_mesh.init(1, 0)
+    embedding.embedding_mesh.init(0, 1)
+    E2V, V2E = embedding.embedding_mesh.topology()(1, 0), embedding.embedding_mesh.topology()(0, 1)
+
+    compute_star = lambda v: set(np.hstack([E2V(ei) for ei in V2E(v)]))
+
+    y = mesh1d.coordinates()
+    e2v = mesh1d.topology()(1, 0)
+    for edge in skewed:
+        y0, y1 = y[e2v(edge)]
+        for piece in skewed[edge]:
+            assert len(piece) == 3
+            x0, x2, x1 = x[piece]
+            # End points were inserted correctly
+            assert is_on_line(x0, y0, y1)
+
+            v0, v2, v1 = piece
+            # Mid point is in the star
+            mids = compute_star(v0) & compute_star(v1)
+
+            assert v2 in mids
+            # If there are more this way we get a shortest path
+            if len(mids) > 1:
+                path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
+                assert v2 == min(mids, key=path_length)
