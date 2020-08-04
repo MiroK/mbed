@@ -8,7 +8,7 @@ import numpy as np
 import gmsh
 
 
-def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
+def embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs):
     '''
     Embed 1d in Xd mesh Xd padded hypercube. Embedding can be as 
     points / lines (these are gmsh options). 
@@ -21,17 +21,17 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
     # Some convenience API where we expand 
     if isinstance(bounding_shape, str):
         bounding_shape = STLShape(bounding_shape)
-        return embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs)
+        return embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs)
         
     # int -> padded
     if is_number(bounding_shape):
         bounding_shape = (bounding_shape, )*mesh1d.geometry().dim()
-        return embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs)
+        return embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs)
     
     # Padded to relative box
     if isinstance(bounding_shape, (tuple, list, np.ndarray)):
         bounding_shape = BoundingBox(bounding_shape)
-        return embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs)
+        return embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs)
 
     if 'debug' not in kwargs:
         kwargs['debug'] = False
@@ -49,9 +49,9 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
         else:
             kwargs['save_geo'] = ''
 
-    print_blue('Emebdding %d vertices and %d edges in R^%d' % (mesh1d.num_vertices(),
-                                                               mesh1d.num_cells(),
-                                                               mesh1d.geometry().dim()))
+    etime = Timer('Emebdding %d vertices and %d edges in R^%d' % (mesh1d.num_vertices(),
+                                                                  mesh1d.num_cells(),
+                                                                  mesh1d.geometry().dim()))
     # At this point the type of bounding shape must check out
     assert isinstance(bounding_shape, BoundingShape)
     # FIXME: we should have that all 1d points are <= bounding shape
@@ -59,18 +59,19 @@ def embed_mesh1d(mesh1d, bounding_shape, how, *gmsh_args, **kwargs):
     #        skip all for now
 
     model = gmsh.model
+
     gmsh.initialize(list(gmsh_args))
     gmsh.option.setNumber("General.Terminal", 1)
 
     if bounding_shape.is_inside(mesh1d, mesh1d.coordinates()):
         if how.lower() == 'as_lines':
             out = line.line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs)
-            gmsh.finalize()
-            return out
-        
-        assert how.lower() == 'as_points'
-        out = point.point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs)
+        else:
+            assert how.lower() == 'as_points'
+            out = point.point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs)
+            
         gmsh.finalize()
+        etime.done()
         return out
 
     # FIXME: Doing points on manifolds is more involved in gmsh

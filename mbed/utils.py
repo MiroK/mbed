@@ -224,11 +224,17 @@ def print_blue(value, *values):
 
 
 class Timer(object):
-    def __init__(self, message, parent=None):
+    def __init__(self, message, parent=-1):
         self.message = message
-        self.indent = 0 if parent is None else 1+parent.indent
+        self.indent = 1 + parent
         self.t0 = time.time()
-        print_blue('\t'*self.indent, 'Starting', self.message)
+        if self.indent:
+            print_blue(' '*self.indent, self.message)
+        else:
+            print_blue(self.message)
 
     def done(self):
-        print_blue('\t'*self.indent, 'Finnished', self.message, 'in %g seconds' % (time.time() - self.t0))
+        if self.indent:
+            print_blue(' '*self.indent, 'Done', self.message, 'in %g seconds' % (time.time() - self.t0))
+        else:
+            print_blue('Done', self.message, 'in %g seconds' % (time.time() - self.t0))            

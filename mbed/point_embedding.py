@@ -18,7 +18,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     e2v = mesh1d.topology()(1, 0)
     topology = [list(e2v(e)) for e in range(mesh1d.num_entities(1))]
 
-    converged, nneeds = False, mesh1d.num_cells()
+    converged, nneeds = False, [mesh1d.num_cells()]
     niters = kwargs.get('niters', 5)
     base_geo = kwargs['save_geo']
     for k in range(niters):
@@ -26,15 +26,15 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         # necessarily edges
         if base_geo:
             kwargs['save_geo'] = '_'.join([base_geo, str(k)]) 
-        t = utils.Timer('%d-th iteration of %d point embedding' % (k, len(x)))
+        t = utils.Timer('%d-th iteration of %d point embedding' % (k, len(x)), 1)
         embedding_mesh, vmap = _embed_points(model, x, bounding_shape, **kwargs)
         t.done()
         
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
-        utils.print_green('# edges need embedding %d (was %d)' % (sum(map(len, needs_embedding)), nneeds))
-        nneeds = sum(map(len, needs_embedding))
+        nneeds.append(sum(map(len, needs_embedding)))
+        utils.print_green(' ', '# edges need embedding %d (was %r)' % (needs[-1], nneeds))
         converged = not any(needs_embedding)
 
         if kwargs['debug'] and k == niters - 1:
@@ -44,15 +44,16 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         if converged: break
 
         # Insert auxiliary points and retry
-        t = utils.Timer('%d-th iteration of point insert' % k)        
+        t = utils.Timer('%d-th iteration of point insert' % k, 1)        
         x, topology = _embed_edges(topology, x, needs_embedding)
         t.done()
-        utils.print_green('# num points increased to %d' % len(x))
+        assert len(topology) == mesh1d.num_cells()
+        utils.print_green(' ', '# num points increased to %d' % len(x))
 
     skew_embed_vertex = defaultdict(list)
     # We capitulate and make approximations;    
     if not converged:
-        utils.print_red('Falling back to non-conforming `embedding`')
+        utils.print_red(' ', 'Falling back to non-conforming `embedding`')
         if base_geo:
             kwargs['save_geo'] = '_'.join([base_geo, str(niters)]) 
         
@@ -64,15 +65,16 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         topology = [list(vmap[edge]) for edge in topology]
         # An edges that need embedding is a branch with terminal vertices - so the
         # idea is to insert the interior path vertices
-        t = utils.Timer('Force embedding edges')
+        t = utils.Timer('Force embedding edges', 1)
         topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embed_vertex)
         t.done()
     else:
         # Since the original 1d mesh likely has been changed we give
         # topology wrt to node numbering of the embedding mesh
         topology = [list(vmap[edge]) for edge in topology]
+    assert len(topology) == mesh1d.num_cells()        
 
-    t = utils.Timer('Fishing for edges')
+    t = utils.Timer('Fishing for edges', 1)
     # Need to color the edge function;
     embedding_mesh.init(1, 0)
     e2v = embedding_mesh.topology()(1, 0)
@@ -80,10 +82,12 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     edge_f = df.MeshFunction('size_t', embedding_mesh, 1, 0)
     topology_as_edge = []
+    
     for tag, edge in enumerate(topology, 1):
         the_edge = []
         for e in zip(edge[:-1], edge[1:]):
             edge_index = edge_lookup[tuple(sorted(e))]
+            assert edge_f[edge_index] == 0  # Never seen
             edge_f[edge_index] = tag
             the_edge.append(edge_index)
         topology_as_edge.append(the_edge)
@@ -93,7 +97,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     skew_embed_edge = {k: map(encode_edge, edge_as_vertex)
                        for k, edge_as_vertex in skew_embed_vertex.items()}
     t.done()
-    
+
     ans = utils.LineMeshEmbedding(embedding_mesh,
                                   # The others were not part of original data
                                   vmap[:mesh1d.num_vertices()],  
@@ -119,7 +123,7 @@ def _force_embed_edges(topology, mesh, edges2refine, skewed):
     x = mesh.coordinates()
     edge_lengths = np.linalg.norm(x[edges[:, 0]] - x[edges[:, 1]], 2, axis=1)
 
-    t = utils.Timer('Networkx graph creation')
+    t = utils.Timer('Networkx graph creation', 2)
     g = nx.Graph()
     for edge, weight in zip(edges, edge_lengths):
         g.add_edge(*edge, weight=weight)

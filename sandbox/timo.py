@@ -19,10 +19,14 @@ df.File('original.pvd') << original_coloring
 embedding = embed_mesh1d(mesh1d,
                          bounding_shape=0.01,
                          how='as_points',
-                         gmsh_args=sys.argv,
+                         gmsh_args=list(sys.argv),
                          save_geo='model',
                          niters=6,
                          save_embdding='timo_rat')
+
+# Counts of edges colorings?
+# Embedding with edges
+# Indentation
 
 coloring = embedding.edge_coloring
 df.File('embedded.pvd') << coloring

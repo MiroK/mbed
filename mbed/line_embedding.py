@@ -1,6 +1,7 @@
 import numpy as np
 import conversion
 import utils
+import tqdm
 import gmsh
 import os
 
@@ -22,7 +23,7 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     mesh1d.init(1, 0)
     e2v = mesh1d.topology()(1, 0)
     lines, edge_encoding = [], []
-    for edge in range(mesh1d.num_entities(1)):
+    for edge in tqdm.tqdm(range(mesh1d.num_entities(1))):
         v0, v1 = vertex_map[e2v(edge)] + 1
         line = model.geo.addLine(v0, v1)
         # There will be a edge function such that edge corresponding
@@ -46,18 +47,18 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     kwargs['save_geo'] and gmsh.write('%s.geo_unrolled' % kwargs['save_geo'])
 
-    time_gen = utils.Timer('Generation line embedded mesh')
+    time_gen = utils.Timer('Generation line embedded mesh', 1)
     model.mesh.generate(tdim)
     time_gen.done()
 
-    time_conv = utils.Timer('Mesh conversion')
+    time_conv = utils.Timer('Mesh conversion', 1)
     embedding_mesh, mesh_fs = conversion.mesh_from_gmshModel(model,
                                                              include_mesh_functions=1)
     time_conv.done()
     
     gmsh.clear()
 
-    time_edge_encode = utils.Timer('Fishing for embedded edges')    
+    time_edge_encode = utils.Timer('Fishing for embedded edges', 1)    
     edge_f = mesh_fs[1]
     edge_values =  edge_f.array()
 
