@@ -34,7 +34,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
         nneeds.append(sum(map(len, needs_embedding)))
-        utils.print_green(' ', '# edges need embedding %d (was %r)' % (needs[-1], nneeds))
+        utils.print_green(' ', '# edges need embedding %d (was %r)' % (nneeds[-1], nneeds))
         converged = not any(needs_embedding)
 
         if kwargs['debug'] and k == niters - 1:

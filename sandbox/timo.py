@@ -6,7 +6,7 @@ import numpy as np
 import sys
 
 
-path = '../../perfusion/data/ratbrain.vtp'
+path = 'ratbrain.vtp'
 # A cell function
 f = read_vtp(path, (1, 'Radius [micron]'))
 
@@ -18,7 +18,7 @@ df.File('original.pvd') << original_coloring
 
 embedding = embed_mesh1d(mesh1d,
                          bounding_shape=0.01,
-                         how='as_points',
+                         how='as_lines',
                          gmsh_args=list(sys.argv),
                          save_geo='model',
                          niters=6,

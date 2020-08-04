@@ -59,7 +59,7 @@ def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
 
     # All the nodes
     _, vertices, _ = model.mesh.getNodes()
-    vertices = vertices.reshape((-1, 3))  # Gmsh does not do 2d
+    vertices = np.array(vertices).reshape((-1, 3))  # Gmsh does not do 2d
 
     if project_2d and np.linalg.norm(vertices[:, 2], np.inf) < 1E-10:
         vertices = vertices[:, 0:2]

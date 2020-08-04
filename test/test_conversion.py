@@ -130,10 +130,10 @@ def test_2d():
     #      3<
     # 4v   5/     2^
     #      1>
-    lines = [(1, 2), (2, 3), (3, 4), (4, 1), (1, 3)]
-        
-    for lidx, line in enumerate(lines, 1):
-        model.geo.addLine(*line, tag=lidx)
+    lines_ = [(1, 2), (2, 3), (3, 4), (4, 1), (1, 3)]
+    lines = []    
+    for lidx, line in enumerate(lines_, 1):
+        lines.append(model.geo.addLine(*line, tag=lidx))
 
     surfs = [(1, 2, -5), (5, 3, 4)]
 

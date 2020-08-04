@@ -181,7 +181,8 @@ def test_point_skew_2d():
     for edge in skewed:
         y0, y1 = y[e2v(edge)]
         for piece in skewed[edge]:
-            assert len(piece) == 3
+            if not len(piece) == 3:
+                continue
             x0, x2, x1 = x[piece]
             # End points were inserted correctly
             assert is_on_line(x0, y0, y1)
