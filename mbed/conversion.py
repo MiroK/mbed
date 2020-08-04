@@ -119,15 +119,13 @@ def make_mesh(vertices, cells, cell_type=None):
     return mesh
 
 
-def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
+def mesh_from_gmshModel(model, include_mesh_functions=-1):
     '''
     Return mesh, [mesh functions for tags]
     
     include_mesh_functions = None ... {} 
                              -1  ... all
                              >=0 ... tags for that entity
-
-    project_2d = True ... handle z = 0 triangle mesh as 2d
     '''
     reorder = utils.Timer('Reordering GMSH', 2)
     etypes = set(model.mesh.getElementTypes())
@@ -142,7 +140,7 @@ def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
     _, vertices, _ = model.mesh.getNodes()
     vertices = np.array(vertices).reshape((-1, 3))  # Gmsh does not do 2d
 
-    if project_2d and np.linalg.norm(vertices[:, 2], np.inf) < 1E-10:
+    if model.getDimension() == 2:
         vertices = vertices[:, 0:2]
 
     # Get elements encoded in gmsh vertex numbering
