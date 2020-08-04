@@ -15,6 +15,8 @@ embed_mesh1d(mesh1d,
              save_msh='model',
              save_embedding='test_embed_line')
 
+print()
+
 embed_mesh1d(mesh1d,
              bounding_shape=0.1,
              how='as_points',

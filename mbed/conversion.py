@@ -2,6 +2,7 @@
 import mbed.utils as utils
 import dolfin as df
 import numpy as np
+import itertools
 import ufl
 
 
@@ -168,31 +169,33 @@ def mesh_from_gmshModel(model, include_mesh_functions=-1):
         include_mesh_functions = [include_mesh_functions]
 
     dim_tags = model.getPhysicalGroups()
+    node_tags = np.zeros(mesh.num_vertices(), dtype=int)
+    
     mesh_fs = {}
-    for dim, tag in reversed(sorted(dim_tags)):
+    for dim, tags in itertools.groupby(dim_tags, key=utils.first):
         if dim not in include_mesh_functions: continue
 
-        assert tag > 0
-        # Seen before
-        if dim not in mesh_fs:
-            dim > 0 and mesh.init(dim)
-            dim > 0 and mesh.init(dim, 0)
+        dim > 0 and mesh.init(dim)
+        dim > 0 and mesh.init(dim, 0)
             
-            mesh_fs[dim] = df.MeshFunction('size_t', mesh, dim, 0)
-            array = mesh_fs[dim].array()
-        # Update values
-        tag_timer = utils.Timer('Tagging entities of dim %d' % dim, 2)
-        tag_entities(model, mesh, dim, tag, dolfin_map, array)
+        mesh_fs[dim] = df.MeshFunction('size_t', mesh, dim, 0)
+        array = mesh_fs[dim].array()
+
+        tag_timer = utils.Timer('Tagging %d entities of dim %d' % (mesh.num_entities(dim), dim), 2)
+        e2v = mesh.topology()(dim, 0)        
+        for _, tag in tags:
+            assert tag > 0
+            
+            tagged_entities = tag_entities(model, dim, tag, e2v, dolfin_map, node_tags, array)
+                    
         tag_timer.done()
     return mesh, mesh_fs
 
 
-def tag_entities(model, mesh, dim, tag, node_map, array):
+def tag_entities(model, dim, tag, e2v, node_map, node_tags, array):
     '''Entites of topological dimension `dim` of mesh from the model that have `tag`'''
     entities = model.getEntitiesForPhysicalGroup(dim, tag)
-    e2v = mesh.topology()(dim, 0)
 
-    node_tags = np.zeros(mesh.num_vertices(), dtype=int)
     for entity in entities:
         # Pick nodes on tagged model entities
         tagged_nodes = model.mesh.getNodes(dim, entity, includeBoundary=True)[0]
@@ -200,13 +203,15 @@ def tag_entities(model, mesh, dim, tag, node_map, array):
         node_tags[[node_map[t] for t in tagged_nodes]] = 1
         # Actual cell tag is determined by its vertices
         if dim > 0:
-            # We want those have all 1 as vertices [[1, 1, 1, 1], [1, 1, 0, 1], ... ]
-            tagged_entities = np.prod(node_tags[map(e2v, np.where(~array)[0])], axis=1)
-            array[tagged_entities == 1] = tag
+            # Unseen
+            maybe,  = np.where(array == 0)
+            # We want those have all 1 as vertices [[1, 1, 1, 1], [1, 1, 0, 1], ... ]            
+            tagged_idx,  = np.where(np.prod(node_tags[map(e2v, maybe)], axis=1) == 1)
+            array[maybe[tagged_idx]] = tag
         # Vertices decide themselves
         else:
             array[node_tags == 1] = tag
-        node_tags *= 0
+        node_tags.fill(0)
     return array
 
 # --------------------------------------------------------------------

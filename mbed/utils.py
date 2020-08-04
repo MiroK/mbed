@@ -238,3 +238,8 @@ class Timer(object):
             print_blue(' '*self.indent, 'Done', self.message, 'in %g seconds' % (time.time() - self.t0))
         else:
             print_blue('Done', self.message, 'in %g seconds' % (time.time() - self.t0))            
+
+
+def first(iterable):
+    '''Of the container'''
+    return next(iter(iterable))
