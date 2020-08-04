@@ -1,28 +1,108 @@
 # In memory conversion from GMSH to dolfin
+import mbed.utils as utils
 import dolfin as df
 import numpy as np
 import ufl
 
 
+code='''
+#include <dolfin/mesh/Mesh.h>
+#include <dolfin/mesh/MeshEditor.h>
+#include <dolfin/mesh/CellType.h>
+#include <dolfin/mesh/MeshTopology.h>
+#include <dolfin/mesh/MeshConnectivity.h>
+#include <dolfin/mesh/MeshValueCollection.h>
+#include <vector>
+#include <algorithm>
+#include <unordered_set>
+#include <map>
+
+namespace dolfin {
+  // Fills a SIMPLICIAL mesh
+  void fill_mesh(const Array<double>& coordinates,
+                 const Array<std::size_t>& cells, 
+                 const int tdim, 
+                 const int gdim, 
+                 std::shared_ptr<Mesh> mesh)
+  {
+     int nvertices = coordinates.size()/gdim;     
+
+     int nvertices_per_cell = tdim + 1;
+     int ncells = cells.size()/nvertices_per_cell;   
+
+     MeshEditor editor;
+     if (tdim == 1){
+         editor.open(*mesh, CellType::Type::interval, tdim, gdim);
+     }
+     else if (tdim == 2){
+         editor.open(*mesh, CellType::Type::triangle, tdim, gdim);
+     }
+     else{
+         editor.open(*mesh, CellType::Type::tetrahedron, tdim, gdim);
+     }
+
+     editor.init_vertices(nvertices);
+     editor.init_cells(ncells);
+
+     std::vector<double> vertex(gdim);
+     for(std::size_t index = 0; index < nvertices; index++){
+         for(std::size_t i = 0; i < gdim; i++){
+             vertex[i] = coordinates[gdim*index  + i];
+         }
+         editor.add_vertex(index, vertex);
+     }
+
+     std::vector<std::size_t> cell(nvertices_per_cell);
+     for(std::size_t index = 0; index < ncells; index++){
+         for(std::size_t i = 0; i < nvertices_per_cell; i++){
+             cell[i] = cells[nvertices_per_cell*index  + i];
+         }
+         editor.add_cell(index, cell);
+     }
+
+     editor.close();
+  }
+};
+'''
+module = df.compile_extension_module(code)
+
+
+
 def make_mesh(vertices, cells, cell_type=None):
     '''Mesh from data by MeshEditor'''
     # Decide tetrahedron/triangle
+    mesh = df.Mesh()
+    assert mesh.mpi_comm().size == 1
+    
     if cell_type is None:
         if len(cells[0]) == 3:
-            cell_type = ufl.Cell('triangle', vertices.shape[1])
-        elif len(cells[0]) == 4 and vertices.shape[1] == 3:
-            cell_type = ufl.tetrahedron
-        else:
-            raise ValueError(
-        'cell_type cannot be determined reliably %d %d %d' % (
-            (len(cells[0]), ) + vertices.shape))
+            gdim = vertices.shape[1]
+            module.fill_mesh(vertices.flatten(), cells.flatten(), 2, gdim, mesh)
+            return mesh
+        
+        if len(cells[0]) == 4 and vertices.shape[1] == 3:
+            module.fill_mesh(vertices.flatten(), cells.flatten(), 3, 3, mesh)
+            return mesh
+            
+        raise ValueError(
+            'cell_type cannot be determined reliably %d %d %d' % (
+        (len(cells[0]), ) + vertices.shape))
+
+    if cell_type.cellname() == 'triangle':
+        module.fill_mesh(vertices.flatten(), cells.flatten(), 2, cell_type.geometric_dimension, mesh)
+        return mesh
+
+    if cell_type.cellname() == 'tetrahedron':
+        module.fill_mesh(vertices.flatten(), cells.flatten(), 3, cell_type.geometric_dimension, mesh)
+        return mesh
+
+    # Fallback to python
         
     gdim = cell_type.geometric_dimension()
     assert vertices.shape[1] == gdim
 
     tdim = cell_type.topological_dimension()
 
-    mesh = df.Mesh()
     editor = df.MeshEditor()
 
     editor.open(mesh, str(cell_type), tdim, gdim)            
@@ -49,6 +129,7 @@ def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
 
     project_2d = True ... handle z = 0 triangle mesh as 2d
     '''
+    reorder = utils.Timer('Reordering GMSH', 2)
     etypes = set(model.mesh.getElementTypes())
     # Pick highest element; also vertices per cell
     if 4 in etypes:
@@ -73,7 +154,11 @@ def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
     dolfin_map = {gi:di for di, gi in enumerate(vtx_idx)}
     cells = np.fromiter((dolfin_map[gi] for gi in cells), dtype='uintp').reshape((-1, vtx_per_cell))
 
+    reorder.done()
+
+    make = utils.Timer('Building mesh with mesh editor', 2)
     mesh = make_mesh(vertices, cells, cell_type=None)
+    make.done()
 
     # Let's see about tags
     if include_mesh_functions is None:
@@ -98,7 +183,9 @@ def mesh_from_gmshModel(model, project_2d=True, include_mesh_functions=-1):
             mesh_fs[dim] = df.MeshFunction('size_t', mesh, dim, 0)
             array = mesh_fs[dim].array()
         # Update values
+        tag_timer = utils.Timer('Tagging entities of dim %d' % dim, 2)
         tag_entities(model, mesh, dim, tag, dolfin_map, array)
+        tag_timer.done()
     return mesh, mesh_fs
 
 

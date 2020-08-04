@@ -33,21 +33,7 @@ def embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs):
         bounding_shape = BoundingBox(bounding_shape)
         return embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs)
 
-    if 'debug' not in kwargs:
-        kwargs['debug'] = False
-        
-    if 'save_embedding' not in kwargs:
-        kwargs['save_embedding'] = ''
-        kwargs['save_geo'] = ''
-    else:
-        d = kwargs['save_embedding']
-        d and (not os.path.exists(d) and (os.makedirs(d)))
-        
-    if 'save_geo' in kwargs:
-        if kwargs['save_embedding']:
-            kwargs['save_geo'] = os.path.join(kwargs['save_embedding'], kwargs['save_geo'])
-        else:
-            kwargs['save_geo'] = ''
+    kwargs = configure_options(**kwargs)
 
     etime = Timer('Emebdding %d vertices and %d edges in R^%d' % (mesh1d.num_vertices(),
                                                                   mesh1d.num_cells(),
@@ -77,3 +63,34 @@ def embed_mesh1d(mesh1d, bounding_shape, how, gmsh_args, **kwargs):
     # FIXME: Doing points on manifolds is more involved in gmsh
     # because the surface needs to be broken apart (manually?)
     raise NotImplementedError
+
+
+def configure_options(**kwargs):
+    '''Mostly expand parameters'''
+    if 'debug' not in kwargs:
+        kwargs['debug'] = False
+        
+    if 'save_embedding' not in kwargs:
+        kwargs['save_embedding'] = ''
+        kwargs['save_geo'] = ''
+    else:
+        d = kwargs['save_embedding']
+        d and (not os.path.exists(d) and (os.makedirs(d)))
+        
+    if 'save_geo' in kwargs:
+        if kwargs['save_embedding']:
+            kwargs['save_geo'] = os.path.join(kwargs['save_embedding'], kwargs['save_geo'])
+        else:
+            kwargs['save_geo'] = ''
+    else:
+        kwargs['save_geo'] = ''
+
+    if 'save_msh' in kwargs:
+        if kwargs['save_embedding']:
+            kwargs['save_msh'] = os.path.join(kwargs['save_embedding'], kwargs['save_msh'])
+        else:
+            kwargs['save_msh'] = ''
+    else:
+        kwargs['save_msh'] = ''
+
+    return kwargs

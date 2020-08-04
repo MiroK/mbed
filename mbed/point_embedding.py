@@ -231,6 +231,8 @@ def _embed_points(model, x, bounding_shape, **kwargs):
 
     model.mesh.generate(tdim)
 
+    kwargs['save_msh'] and gmsh.write('%s.msh' % kwargs['save_msh'])
+
     embedding_mesh, _ = conversion.mesh_from_gmshModel(model, include_mesh_functions=None)
     gmsh.clear()
 

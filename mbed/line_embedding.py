@@ -8,7 +8,7 @@ import os
 
 def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     '''Embed mesh1d in Xd square mesh'''
-    time_model = utils.Timer('Line embedding model definition')
+    time_model = utils.Timer('Line embedding model definition', 1)
     npoints, tdim = mesh1d.coordinates().shape
     # Figure out how to bound it
     counts = bounding_shape.create_volume(model, mesh1d.coordinates())
@@ -50,6 +50,8 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     time_gen = utils.Timer('Generation line embedded mesh', 1)
     model.mesh.generate(tdim)
     time_gen.done()
+
+    kwargs['save_msh'] and gmsh.write('%s.msh' % kwargs['save_msh'])
 
     time_conv = utils.Timer('Mesh conversion', 1)
     embedding_mesh, mesh_fs = conversion.mesh_from_gmshModel(model,

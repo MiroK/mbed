@@ -12,6 +12,7 @@ embed_mesh1d(mesh1d,
              how='as_lines',
              gmsh_args=sys.argv,
              save_geo='model',
+             save_msh='model',
              save_embedding='test_embed_line')
 
 embed_mesh1d(mesh1d,
@@ -19,6 +20,7 @@ embed_mesh1d(mesh1d,
              how='as_points',
              gmsh_args=sys.argv,
              save_geo='model',
+             save_msh='model',
              niters=2,
              save_embedding='test_embed_point')
 
