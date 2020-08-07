@@ -34,7 +34,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
         nneeds.append(sum(map(len, needs_embedding)))
-        utils.print_green(' ', '# edges need embedding %d (was %r)' % (nneeds[-1], nneeds))
+        utils.print_green(' ', '# edges need embedding %d (was %r)' % (nneeds[-1], nneeds[:-1]))
         converged = not any(needs_embedding)
 
         if kwargs['debug'] and k == niters - 1:
@@ -217,8 +217,13 @@ def _embed_points(model, x, bounding_shape, **kwargs):
     
     # In gmsh Point(4) will be returned as fourth node
     vertex_map = []  # mesh_1d.x[i] is embedding_mesh[vertex_map[i]]
-    for xi in x:
-        vertex_map.append(model.geo.addPoint(*np.r_[xi, 0])-1)
+    if tdim == 2:
+        for xi in x:
+            vertex_map.append(model.geo.addPoint(*np.r_[xi, 0])-1)
+    else:
+        for xi in x:
+            vertex_map.append(model.geo.addPoint(*xi)-1)
+                            
     vertex_map = np.array(vertex_map)
 
     model.addPhysicalGroup(tdim, [counts[tdim]], 1)

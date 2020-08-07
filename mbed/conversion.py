@@ -3,6 +3,7 @@ import mbed.utils as utils
 import dolfin as df
 import numpy as np
 import itertools
+import tqdm
 import ufl
 
 
@@ -159,6 +160,9 @@ def mesh_from_gmshModel(model, include_mesh_functions=-1):
     mesh = make_mesh(vertices, cells, cell_type=None)
     make.done()
 
+    q = df.MeshQuality.radius_ratio_min_max(mesh) + (min(c.volume() for c in df.cells(mesh)), )
+    utils.print_green('Mesh quality %g, %g, %g' % q)
+
     # Let's see about tags
     if include_mesh_functions is None:
         include_mesh_functions = []
@@ -182,8 +186,9 @@ def mesh_from_gmshModel(model, include_mesh_functions=-1):
         array = mesh_fs[dim].array()
 
         tag_timer = utils.Timer('Tagging %d entities of dim %d' % (mesh.num_entities(dim), dim), 2)
-        e2v = mesh.topology()(dim, 0)        
-        for _, tag in tags:
+        e2v = mesh.topology()(dim, 0)
+        tags = [p[1] for p in tags]
+        for tag in tqdm.tqdm(tags):
             assert tag > 0
             
             tagged_entities = tag_entities(model, dim, tag, e2v, dolfin_map, node_tags, array)
@@ -200,6 +205,7 @@ def tag_entities(model, dim, tag, e2v, node_map, node_tags, array):
         # Pick nodes on tagged model entities
         tagged_nodes = model.mesh.getNodes(dim, entity, includeBoundary=True)[0]
         # Set in dolfin numbering
+        print node_map
         node_tags[[node_map[t] for t in tagged_nodes]] = 1
         # Actual cell tag is determined by its vertices
         if dim > 0:
