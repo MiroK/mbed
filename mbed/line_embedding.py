@@ -61,6 +61,9 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     time_conv = utils.Timer('Mesh conversion', 1)
     # FIXME: as part of debugging do this with mesh convert
+    if kwargs.get('return_mesh_only', False):
+        return conversion.mesh_from_gmshModel(model, include_mesh_functions=None)[0]
+    
     # maybe the mesh_fs[1] is wrong
     embedding_mesh, mesh_fs = conversion.mesh_from_gmshModel(model,
                                                              include_mesh_functions=1)

@@ -205,7 +205,6 @@ def tag_entities(model, dim, tag, e2v, node_map, node_tags, array):
         # Pick nodes on tagged model entities
         tagged_nodes = model.mesh.getNodes(dim, entity, includeBoundary=True)[0]
         # Set in dolfin numbering
-        print node_map
         node_tags[[node_map[t] for t in tagged_nodes]] = 1
         # Actual cell tag is determined by its vertices
         if dim > 0:

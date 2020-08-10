@@ -213,6 +213,16 @@ def make_submesh(mesh, use_indices):
             submesh.data().array('parent_cell_indices', tdim),
             submesh.data().array('parent_vertex_indices', 0))
 
+
+def edge_angles(mesh):
+    '''Mapping from nonleaf vertices to (angle, edge0, edge1)'''
+    mesh.init(0, 1)
+    e2v, v2e = mesh.topology()(1, 0), mesh.topology()(0, 1)
+    
+    for v in range(nvertices):
+        edges = v2e(v)
+        for e0, e1
+
 # --------------------------------------------------------------------
 
 from mbed.generation import make_line_mesh
@@ -231,12 +241,12 @@ else:
 lengths = edge_lengths(mesh)
 length_array = lengths.vector().get_local()
 l0, l1 = length_array.min(), length_array.max()
-l1 = l0 + 2*(l1-l0)/100.
+l1 = l0 + 1*(l1-l0)/100.
 tol = (l1 - l0)/1000.
 
 idx = find_edges(lengths, predicate=lambda v, x: ~np.logical_and(l0 - tol < v,
                                                                  v < l1 + tol))
-print 'Reduced length by', 1-sum(length_array[idx])/sum(length_array)
+print 'Reduced length', sum(length_array[idx])/sum(length_array)
 
 # ---
 
@@ -247,63 +257,105 @@ length_array = lengths.vector().get_local()
 tagged_cc = connected_components(lmesh)
 idx = find_edges(tagged_cc, predicate=lambda v, x: v == 1)
 
-print 'Reduced length by', 1-sum(length_array[idx])/sum(length_array)
+print 'Reduced length by', sum(length_array[idx])/sum(length_array)
 
 tmesh, _, __ = make_submesh(lmesh, idx)
 
 df.File('foo.pvd') << tmesh
 
-
 x = tmesh.coordinates()
+x0, x1 = x.min(axis=0), x.max(axis=0)
 
-dV = np.array([40, 40, 40])
+z0, z1 = x0[-1], x1[-1]
+zi = np.linspace(z0, z1, 2)
 
-f = df.MeshFunction('size_t', tmesh, 1, 0)
-values = f.array()
+from mbed.meshing import embed_mesh1d
+import sys
 
-tmesh.init(0, 1)
-e2v, v2e = tmesh.topology()(1, 0), tmesh.topology()(0, 1)
+foo = df.MeshFunction('size_t', tmesh, 1, 0)
+values = foo.array()
+for tag, (z0, z1) in enumerate(zip(zi[:-1], zi[1:]), 1):
+    values[find_edges(tmesh, lambda x: np.logical_and(z0 - 0.1 < x[:, 2], x[:, 2] < z1 + 0.1))] = tag
 
-tag = 1
+    idx, = np.where(values == tag)
 
-terminal_map = get_terminal_map(tmesh)
-terminals = np.array([k for k, v in terminal_map.items() if len(v) > 2])
+    mesh, _, __ = make_submesh(tmesh, idx)
 
-terminals_x = x[terminals]
+    embedding = embed_mesh1d(mesh,
+                             bounding_shape=0.01,
+                             how='as_lines',
+                             gmsh_args=list(sys.argv),
+                             niters=12,                         
+                             save_geo='model',
+                             save_msh='model',
+                             save_embedding='timo_rat',
+                             return_mesh_only=True)
 
-cell_nodes = tmesh.cells().flatten()
-
-kill_node = tmesh.num_vertices() + 1
-for x0 in subwindows(tmesh, dV=dV):
-    x1 = x0 + dV
-    predicate = lambda x, x0=x0, x1=x1: np.all(np.logical_and(x > x0, x < x1), axis=1)
-    idx, = np.where(predicate(terminals_x))
+    vol = df.Function(df.FunctionSpace(embedding, 'DG', 0))
+    vol.vector().set_local(np.fromiter((c.volume() for c in df.cells(embedding)), dtype=float))
     
-    if len(idx) > 6:
-        cluster_points = terminals[idx]
-        cluster_x = terminals_x[idx] 
-        D = pdist(cluster_x)
-    #print min(D), max(D), (min(idx), np.mean(idx), max(idx)), (x0, x1)
-        d = np.mean(D)
-        #distances.append(np.mean(D))
-        if d < 50:
-            edges = np.unique(np.hstack(map(v2e, cluster_points))) 
-            values[edges] = tag
+    df.File('mesh_%d.pvd' % tag) << vol
 
-            vertices = np.unique(np.hstack(map(e2v, edges)))
+    # --
 
-            # center = np.mean(cluster_x, axis=0)
-            # center = cluster_points[np.argmin(np.linalg.norm(cluster_x - center, 2, axis=1))]
+# tmap = get_terminal_map(tmesh)
 
-            for p in cluster_points:
-                cell_nodes[cell_nodes == p] = kill_node #center
+# x = tmesh.coordinates()
+
+# tmesh.init(0, 1)
+# v2e = tmesh.topology()(0, 1)
+
+
+# x = tmesh.coordinates()
+
+# dV = np.array([40, 40, 40])
+
+# f = df.MeshFunction('size_t', tmesh, 1, 0)
+# values = f.array()
+
+# tmesh.init(0, 1)
+# e2v, v2e = tmesh.topology()(1, 0), tmesh.topology()(0, 1)
+
+# tag = 1
+
+# terminal_map = get_terminal_map(tmesh)
+# terminals = np.array([k for k, v in terminal_map.items() if len(v) > 2])
+
+# terminals_x = x[terminals]
+
+# cell_nodes = tmesh.cells().flatten()
+
+# kill_node = tmesh.num_vertices() + 1
+# for x0 in subwindows(tmesh, dV=dV):
+#     x1 = x0 + dV
+#     predicate = lambda x, x0=x0, x1=x1: np.all(np.logical_and(x > x0, x < x1), axis=1)
+#     idx, = np.where(predicate(terminals_x))
+    
+#     if len(idx) > 4:
+#         cluster_points = terminals[idx]
+#         cluster_x = terminals_x[idx] 
+#         D = pdist(cluster_x)
+#     #print min(D), max(D), (min(idx), np.mean(idx), max(idx)), (x0, x1)
+#         d = np.mean(D)
+#         #distances.append(np.mean(D))
+#         if d < 50:
+#             edges = np.unique(np.hstack(map(v2e, cluster_points))) 
+#             values[edges] = tag
+
+#             vertices = np.unique(np.hstack(map(e2v, edges)))
+
+#             # center = np.mean(cluster_x, axis=0)
+#             # center = cluster_points[np.argmin(np.linalg.norm(cluster_x - center, 2, axis=1))]
+
+#             for p in cluster_points:
+#                 cell_nodes[cell_nodes == p] = kill_node #center
             
-            #subs, = np.where(cell_nodes[0::2] == cell_nodes[1::2])
-            #my_subs = set(subs) - invalid
-            #print len(my_subs)
-            #invalid.update(my_subs)
+#             #subs, = np.where(cell_nodes[0::2] == cell_nodes[1::2])
+#             #my_subs = set(subs) - invalid
+#             #print len(my_subs)
+#             #invalid.update(my_subs)
 
-            tag += 1
+#             tag += 1
 # print('Cluster count', tag)
 
 # cells = cell_nodes.reshape((-1, 2))
@@ -330,4 +382,16 @@ for x0 in subwindows(tmesh, dV=dV):
 # df.File('lala.pvd') << xx
 
             
-df.File('clusters_q.pvd') << f
+# df.File('clusters_q.pvd') << f
+
+# from mbed.meshing import embed_mesh1d
+# import sys
+
+# embedding = embed_mesh1d(tmesh,
+#                          bounding_shape=0.01,
+#                          how='as_lines',
+#                          gmsh_args=list(sys.argv),
+#                          niters=12,                         
+#                          save_geo='model',
+#                          save_msh='model',
+#                          save_embedding='timo_rat')
