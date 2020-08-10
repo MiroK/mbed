@@ -88,11 +88,8 @@ def branch_graph(branches):
 
 def edge_lengths(mesh):
     '''P0 foo with edge lenths'''
-    mesh.init(1, 0)
-    e2v = mesh.topology()(1, 0)
-
     x = mesh.coordinates()
-    lengths = np.linalg.norm(np.diff(ee, axis=1), 2, axis=2).T
+    lengths = np.linalg.norm(np.diff(x[mesh.cells()], axis=1), 2, axis=2).reshape((-1, ))
     
     l = df.Function(df.FunctionSpace(mesh, 'DG', 0))
     l.vector().set_local(lengths)
@@ -119,8 +116,15 @@ def find_edges(thing, predicate):
         mids = np.mean(x[map(e2v, range(thing.num_entities(1)))], axis=1)
         
         return np.where(predicate(mids))[0]
-    
-    assert thing.dim() == 0
+
+    if isinstance(thing, df.Function):
+        mesh = thing.function_space().mesh()
+        f = df.MeshFunction('double', mesh, mesh.topology().dim(), 0.)
+        f.array()[:] = thing.vector().get_local()
+
+        return find_edges(f, predicate)
+
+    assert thing.dim() == 1
 
     # Edge midpoints
     mesh = thing.mesh()
@@ -143,6 +147,72 @@ def subwindows(mesh, dV):
     for x in product(*(np.arange(*t) for t in zip(x0, x1, dV))):
         yield x
 
+
+def edge_histogram(thing, nbins, tol=0.01):
+    '''Bins and histogram by edge count and edge length'''
+    if isinstance(thing, df.Mesh):
+        return edge_histogram(edge_lengths(thing), nbins)
+
+    if isinstance(thing, (df.MeshFunction, df.MeshFunctionBool, df.MeshFunctionSizet,
+                          df.MeshFunctionInt, df.MeshFunctionDouble)):
+        f = df.Function(df.FunctionSpace(thing.mesh(), 'DG', 0))
+        f.vector().set_local(np.fromiter(thing.array(), dtype=float))
+        return edge_histogram(f, nbins)
+
+    assert thing.function_space().mesh().topology().dim() == 1
+    
+    values = thing.vector().get_local()
+    vmin, vmax = values.min(), values.max()
+    # For edge length weighting
+    lengths = edge_lengths(thing.function_space().mesh()).vector().get_local()
+    tol = (tol/nbins)*(vmax - vmin)
+    # Normalization
+    total_count = float(len(values))
+    total_length = sum(lengths)
+    
+    bins = np.linspace(vmin, vmax, nbins)
+    
+    bin_c_values, bin_values = np.zeros(len(bins)-1), np.zeros(len(bins)-1)
+    for i, (l0, l1) in enumerate(zip(bins[:-1], bins[1:])):
+        idx, = np.where(np.logical_and(l0 - tol < values, values < l1 + tol))
+        if len(idx):
+            print l0-tol, l1+tol, len(idx)
+            bin_c_values[i] = len(idx)/total_count
+            bin_values[i] = sum(lengths[idx])/total_length
+
+    return bins, bin_c_values, bin_values
+
+
+def connected_components(mesh):
+    '''A mesh function which colors connected components of 1d graph'''
+    # Largest components have smallest tag
+    tagged_components = df.MeshFunction('size_t', mesh, 1, 0)
+    values = tagged_components.array()
+
+    branch_as_e, branch_as_v = get_branches(mesh, terminal_map=None)
+    dG = branch_graph(branch_as_v)
+    ccs = sorted(nx.algorithms.connected_components(dG), key=len, reverse=True)
+
+    for cc_tag, cc in enumerate(ccs[:1], 1):
+        # List of branches
+        cells = sum((branch_as_e[branch] for branch in cc), [])
+        values[cells] = cc_tag
+
+    return tagged_components
+
+
+def make_submesh(mesh, use_indices):
+    '''Submesh + mapping of child to parent cell and vertex indices'''
+    tdim = mesh.topology().dim()
+
+    f = df.MeshFunction('size_t', mesh, tdim, 0)
+    f.array()[use_indices] = 1
+
+    submesh = df.SubMesh(mesh, f, 1)
+    return (submesh,
+            submesh.data().array('parent_cell_indices', tdim),
+            submesh.data().array('parent_vertex_indices', 0))
+
 # --------------------------------------------------------------------
 
 from mbed.generation import make_line_mesh
@@ -157,93 +227,107 @@ else:
 
     mesh = make_line_mesh(x, cells)
 
-# print mesh.coordinates().min(axis=0), mesh.coordinates().max(axis=0)
 
-x = mesh.coordinates()
+lengths = edge_lengths(mesh)
+length_array = lengths.vector().get_local()
+l0, l1 = length_array.min(), length_array.max()
+l1 = l0 + 2*(l1-l0)/100.
+tol = (l1 - l0)/1000.
 
-dV = np.array([80, 80, 80])
+idx = find_edges(lengths, predicate=lambda v, x: ~np.logical_and(l0 - tol < v,
+                                                                 v < l1 + tol))
+print 'Reduced length by', 1-sum(length_array[idx])/sum(length_array)
 
-f = df.MeshFunction('size_t', mesh, 1, 0)
+# ---
+
+lmesh, _, __ = make_submesh(mesh, idx)
+lengths = edge_lengths(lmesh)
+length_array = lengths.vector().get_local()
+
+tagged_cc = connected_components(lmesh)
+idx = find_edges(tagged_cc, predicate=lambda v, x: v == 1)
+
+print 'Reduced length by', 1-sum(length_array[idx])/sum(length_array)
+
+tmesh, _, __ = make_submesh(lmesh, idx)
+
+df.File('foo.pvd') << tmesh
+
+
+x = tmesh.coordinates()
+
+dV = np.array([40, 40, 40])
+
+f = df.MeshFunction('size_t', tmesh, 1, 0)
 values = f.array()
 
-mesh.init(0, 1)
-e2v, v2e = mesh.topology()(1, 0), mesh.topology()(0, 1)
+tmesh.init(0, 1)
+e2v, v2e = tmesh.topology()(1, 0), tmesh.topology()(0, 1)
 
 tag = 1
 
-terminals = get_terminal_map(mesh)
-terminals = np.array([k for k, v in terminals.items() if len(v) > 2])
+terminal_map = get_terminal_map(tmesh)
+terminals = np.array([k for k, v in terminal_map.items() if len(v) > 2])
 
 terminals_x = x[terminals]
 
-distances = []
-for x0 in subwindows(mesh, dV=dV):
+cell_nodes = tmesh.cells().flatten()
+
+kill_node = tmesh.num_vertices() + 1
+for x0 in subwindows(tmesh, dV=dV):
     x1 = x0 + dV
     predicate = lambda x, x0=x0, x1=x1: np.all(np.logical_and(x > x0, x < x1), axis=1)
     idx, = np.where(predicate(terminals_x))
     
-    if len(idx) > 7:
-        D = pdist(terminals_x[idx])
+    if len(idx) > 6:
+        cluster_points = terminals[idx]
+        cluster_x = terminals_x[idx] 
+        D = pdist(cluster_x)
     #print min(D), max(D), (min(idx), np.mean(idx), max(idx)), (x0, x1)
         d = np.mean(D)
         #distances.append(np.mean(D))
-        if d < 30:
-            print len(idx), d
-            edges = np.unique(np.hstack(map(v2e, terminals[idx]))) 
+        if d < 50:
+            edges = np.unique(np.hstack(map(v2e, cluster_points))) 
             values[edges] = tag
 
             vertices = np.unique(np.hstack(map(e2v, edges)))
-            print '\t', set(vertices) - set(terminals[idx])
 
-            # We say the cluster center is the mean of terminal nodes
-            # relative to the graph of the cluster, i.e. ignoring connections
-            # outside
+            # center = np.mean(cluster_x, axis=0)
+            # center = cluster_points[np.argmin(np.linalg.norm(cluster_x - center, 2, axis=1))]
 
-            # Does it make sense to talk about a ball?
-
-            # We need to pick the terminals which will be reduced to some
-            # point - it is perhaps safest to pick one of them instead of
-            # creating a new point and risk having it collide with some
-            # existing edge
-
-            # If the clusters are isolated (assert this) then the updates
-            # do not need modifs of mesh. Some bookeeping should be enough
+            for p in cluster_points:
+                cell_nodes[cell_nodes == p] = kill_node #center
             
+            #subs, = np.where(cell_nodes[0::2] == cell_nodes[1::2])
+            #my_subs = set(subs) - invalid
+            #print len(my_subs)
+            #invalid.update(my_subs)
+
             tag += 1
+# print('Cluster count', tag)
+
+# cells = cell_nodes.reshape((-1, 2))
+
+# # invalid, = np.where(cells[:, 0] == cells[:, 1])
+# invalid = np.unique(np.r_[np.where(cells[:, 0] == kill_node)[0],
+#                           np.where(cells[:, 1] == kill_node)[0]])
+
+# print len(invalid), len(cells)
+
+# cells = np.delete(cells, invalid, axis=0)
+
+# # Recombine
+# nodes = np.unique(cells.flatten())
+# old2new = {o: n for n, o in enumerate(nodes)}
+
+# new_x = x[nodes]
+# new_cells = np.array([old2new[n] for n in cells.flatten()]).reshape((-1, 2))
+
+# from mbed.generation import make_line_mesh
+
+# xx = make_line_mesh(new_x, new_cells)
+
+# df.File('lala.pvd') << xx
+
             
 df.File('clusters_q.pvd') << f
-
-#import matplotlib.pyplot as plt
-
-#plt.figure()
-#plt.hist(distances)
-#plt.show()
-    
-    
-
-#x0 = mesh.coordinates().min(axis=0)
-#dx = mesh.coordinates().max(axis=1) - x0
-
-
-# branch_as_e, branch_as_v = get_branches(mesh, terminal_map=None)
-# print len(branch_as_e), mesh.num_cells()
-# # Not duplicates
-
-# # We got them all
-# assert set(sum(branch_as_e, [])) == set(range(mesh.num_cells()))
-
-# df.File('lengths.pvd') << edge_lengths(mesh)
-
-# tagged_components = df.MeshFunction('size_t', mesh, 1, 0)
-# values = tagged_components.array()
-
-# dG = branch_graph(branch_as_v)
-# ccs = sorted(nx.algorithms.connected_components(dG), key=len, reverse=True)
-# for cc_tag, cc in enumerate(ccs[:1], 1):
-#     # List of branches
-#     cells = sum((branch_as_e[branch] for branch in cc), [])
-#     values[cells] = cc_tag
-
-# df.File('foo.pvd') << tagged_components
-
-
