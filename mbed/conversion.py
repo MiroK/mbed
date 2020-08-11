@@ -160,8 +160,9 @@ def mesh_from_gmshModel(model, include_mesh_functions=-1):
     mesh = make_mesh(vertices, cells, cell_type=None)
     make.done()
 
-    q = df.MeshQuality.radius_ratio_min_max(mesh) + (min(c.volume() for c in df.cells(mesh)), )
-    utils.print_green('Mesh quality %g, %g, %g' % q)
+    q = df.MeshQuality.radius_ratio_min_max(mesh)
+    q = q + (min(c.volume() for c in df.cells(mesh)), max(c.volume() for c in df.cells(mesh)))
+    utils.print_green('Mesh quality %g, %g | %g %g' % q)
 
     # Let's see about tags
     if include_mesh_functions is None:

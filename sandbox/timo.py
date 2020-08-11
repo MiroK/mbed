@@ -1,4 +1,6 @@
 # This requires perfusion package to be on path
+import matplotlib.pyplot as plt
+from mbed.trimming import *
 from perfusion.vtp_read import read_vtp
 from mbed.meshing import embed_mesh1d
 import dolfin as df
@@ -20,8 +22,38 @@ original_coloring.array()[:] = np.arange(1, mesh1d.num_entities(1)+1)
 
 df.File('original.pvd') << original_coloring
 
-import matplotlib.pyplot as plt
-from mbed.trimming import *
+# 0) Just filter on radius
+if True:
+    idx = find_edges(radius, predicate=lambda v, x: v > 4.5)
+    rmesh, rcmap, rlmap = make_submesh(mesh1d, idx)
+
+    df.File('meshr.pvd') << rmesh
+
+    embedding = embed_mesh1d(rmesh,
+                         bounding_shape=0.01,
+                         how='as_lines',
+                         gmsh_args=list(sys.argv),
+                         save_geo='model',
+                         save_msh='model',
+                         save_embedding='rat_timo')
+
+    # This is a check that mesh is okay for solving    
+    edge_f = embedding.edge_coloring
+    df.File('rat_timo/embedded_r.pvd') << edge_f
+
+    edge_f.array()[edge_f.array() > 0] = 1
+
+
+    from perfusion.boundary_conditions import poisson_solve, EdgeDirichletBC
+    
+    V = df.FunctionSpace(embedding.embedding_mesh, 'CG', 1)
+    f = df.Constant(1)
+    bcs = EdgeDirichletBC(V, 2, edge_f, 1)
+    
+    _, uh = poisson_solve(V, f, bcs)
+
+    df.File('rat_timo/poisson.pvd') << uh
+
 # Preprocessing the mesh proceeds in several step.
 # 1) Removing short edges
 # Consider the curve below which plots for interval [l0, l1] a sum length
@@ -73,39 +105,36 @@ tmesh_radius.array()[:] = radius.array()[lcmap[tcmap]]
 df.File('reduced_radius.pvd') << tmesh_radius
 
 # Keep on cells with radius
-idx = find_edges(tmesh_radius, predicate=lambda v, x: v > 5.0)
+idx = find_edges(tmesh_radius, predicate=lambda v, x: v > 4.5)
 rmesh, rcmap, rlmap = make_submesh(tmesh, idx)
 
 df.File('rmesh.pvd') << rmesh
 
-tagged_cc = connected_components(rmesh)
+tagged_cc = connected_components(rmesh, 'geometric')
 df.File('rmesh_components.pvd') << tagged_cc
 
-# embedding = embed_mesh1d(mesh1d,
-#                          bounding_shape=0.01,
-#                          how='as_lines',
-#                          gmsh_args=list(sys.argv),
-#                          niters=12,                         
-#                          save_geo='model',
-#                          save_msh='model',
-#                          save_embedding='timo_rat')
+embedding = embed_mesh1d(rmesh,
+                         bounding_shape=0.01,
+                         how='as_lines',
+                         gmsh_args=list(sys.argv),
+                         save_geo='model',
+                         save_msh='model',
+                         save_embedding='timo_rat')
 
-# # Counts of edges colorings?
-# # Embedding with edges
-# # Indentation
-# # Is line embedding?
+df.File('timo_rat/embedded_ltr.pvd') << embedding.edge_coloring
 
-# coloring = embedding.edge_coloring
-# df.File('embedded.pvd') << coloring
+# This is a check that mesh is okay for solving    
+edge_f = embedding.edge_coloring
 
-# # Who is missing -- figure this mapping out!
-# # coloring.array()[:] = 0
-# # original_coloring.array()[:] = 0
-# # mapping = embedding.nc_edge_encoding.as_edges
-# # # Only keep those that have been messed up
-# # for new_color, old_color in enumerate(mapping, 1):
-# #     coloring.array()[sum(mapping[old_color], [])] = new_color
-# #     original_coloring.array()[old_color-1] = new_color
+edge_f.array()[edge_f.array() > 0] = 1
+
+
+from perfusion.boundary_conditions import poisson_solve, EdgeDirichletBC
     
-# # df.File('embedded_skewed.pvd') << coloring
-# # df.File('original_skewed.pvd') << original_coloring
+V = df.FunctionSpace(embedding.embedding_mesh, 'CG', 1)
+f = df.Constant(1)
+bcs = EdgeDirichletBC(V, 2, edge_f, 1)
+
+_, uh = poisson_solve(V, f, bcs)
+
+df.File('timo_rat/poisson.pvd') << uh

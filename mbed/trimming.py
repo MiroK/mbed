@@ -1,7 +1,7 @@
 from itertools import combinations, product
 from scipy.spatial.distance import pdist
 from collections import defaultdict
-from mbed.utils import first
+from mbed.utils import first, print_red
 from copy import deepcopy
 import networkx as nx
 import dolfin as df
@@ -189,7 +189,7 @@ def edge_histogram(thing, nbins, tol=0.01):
     return bins, bin_c_values, bin_values
 
 
-def connected_components(mesh):
+def connected_components(mesh, sort='topological'):
     '''A mesh function which colors connected components of 1d graph'''
     # Largest components have smallest tag
     tagged_components = df.MeshFunction('size_t', mesh, 1, 0)
@@ -197,8 +197,14 @@ def connected_components(mesh):
 
     branch_as_e, branch_as_v = get_branches(mesh, terminal_map=None)
 
+    if sort == 'topological':
+        sort = len
+    else:
+        lengths = edge_lengths(mesh).vector().get_local()
+        sort = lambda cc: sum(lengths[sum((branch_as_e[branch] for branch in cc), [])])
+
     dG = branch_graph(branch_as_v)
-    ccs = sorted(nx.algorithms.connected_components(dG), key=len, reverse=True)
+    ccs = sorted(nx.algorithms.connected_components(dG), key=sort, reverse=True)
 
     for cc_tag, cc in enumerate(ccs, 1):
         # List of branches
@@ -210,12 +216,15 @@ def connected_components(mesh):
 
 def make_submesh(mesh, use_indices):
     '''Submesh + mapping of child to parent cell and vertex indices'''
+    length0 = sum(c.volume() for c in df.cells(mesh))
     tdim = mesh.topology().dim()
 
     f = df.MeshFunction('size_t', mesh, tdim, 0)
     f.array()[use_indices] = 1
 
     submesh = df.SubMesh(mesh, f, 1)
+    length1 = sum(c.volume() for c in df.cells(submesh))
+    print_red('Reduced mesh has %g  volume of original' % (length1/length0, ))
     return (submesh,
             submesh.data().array('parent_cell_indices', tdim),
             submesh.data().array('parent_vertex_indices', 0))
