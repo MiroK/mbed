@@ -87,7 +87,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         the_edge = []
         for e in zip(edge[:-1], edge[1:]):
             edge_index = edge_lookup[tuple(sorted(e))]
-            assert edge_f[edge_index] == 0  # Never seen
+            # assert edge_f[edge_index] == 0  # Never seen
             edge_f[edge_index] = tag
             the_edge.append(edge_index)
         topology_as_edge.append(the_edge)

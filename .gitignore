@@ -6,5 +6,7 @@
 *.pvd
 *.vtu
 
+*.xml
+
 /sandbox/*/
 /test/*/

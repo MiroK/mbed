@@ -54,9 +54,10 @@ def _embed_edgeencode(line_mesh, embedding_res):
     return True
 
 
-def _1d2d_mesh(n):
+def _1d2d_mesh(n, m=None):
     '''Line mesh in 2d'''
-    mesh1d = df.UnitSquareMesh(n, n)
+    if m is None: m = n
+    mesh1d = df.UnitSquareMesh(n, m)
     mesh1d = df.BoundaryMesh(mesh1d, 'exterior')
 
     cell_f = df.MeshFunction('size_t', mesh1d, 1, 0)
@@ -197,6 +198,82 @@ def test_point_skew_2d():
                 path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
                 assert v2 == min(mids, key=path_length)
 
+    vmap = embedding.vertex_map
+    encode = embedding.edge_encoding.as_edges
+    print encode
+    print skewed
+    # We can combine the maps to pick correctly embedded edges
+    for edge in range(mesh1d.num_cells()):
+        if edge not in skewed:
+            v0, v1 = e2v(edge)
+
+            e_ = encode[edge]
+            print e_, '<--'
+            
+            vs = set(vmap[e2v(e_[0])])
+            assert v0 not in vs
+
+            vs = set(vmap[e2v(e_[-1])])
+            assert v1 in vs
+
+    assert False
+
+def test_point_skewPartly_2d():
+    '''Not necesarily conform'''
+    mesh1d = _1d2d_mesh(4, 32)
+    embedding = embed_mesh1d(mesh1d,
+                             bounding_shape=0.1, 
+                             how='as_points',
+                             gmsh_args=[],
+                             niters=1,
+                             debug=False,
+                             save_geo='')
+
+    skewed = embedding.nc_edge_encoding.as_vertices
+    assert skewed
+
+    x = embedding.embedding_mesh.coordinates()
+
+    embedding.embedding_mesh.init(1, 0)
+    embedding.embedding_mesh.init(0, 1)
+    E2V, V2E = embedding.embedding_mesh.topology()(1, 0), embedding.embedding_mesh.topology()(0, 1)
+
+    compute_star = lambda v: set(np.hstack([E2V(ei) for ei in V2E(v)]))
+
+    y = mesh1d.coordinates()
+    e2v = mesh1d.topology()(1, 0)
+    for edge in skewed:
+        y0, y1 = y[e2v(edge)]
+        for piece in skewed[edge]:
+            if not len(piece) == 3:
+                continue
+            x0, x2, x1 = x[piece]
+            # End points were inserted correctly
+            assert is_on_line(x0, y0, y1)
+
+            v0, v2, v1 = piece
+            # Mid point is in the star
+            mids = compute_star(v0) & compute_star(v1)
+
+            assert v2 in mids
+            # If there are more this way we get a shortest path
+            if len(mids) > 1:
+                path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
+                assert v2 == min(mids, key=path_length)
+
+    vmap = embedding.vertex_map
+    encode = embedding.edge_encoding.as_edges
+    # We can combine the maps to pick correctly embedded edges
+    for edge in range(mesh1d.num_cells()):
+        if edge not in skewed:
+            # Look up edge in embedding numbering
+            vs0 = set(vmap[e2v(edge)])
+            E_,  = encode[edge]
+            # Corresponding encoded
+            vs = set(E2V(E_))
+
+            assert vs == vs0
+
  
 def test_point_skew_3d():
     '''Not necesarily conform'''
@@ -314,3 +391,6 @@ def test_point_skew_stl_3d():
             if len(mids) > 1:
                 path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
                 assert v2 == min(mids, key=path_length)
+
+
+test_point_skewPartly_2d()                

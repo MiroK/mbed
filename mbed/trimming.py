@@ -214,14 +214,58 @@ def make_submesh(mesh, use_indices):
             submesh.data().array('parent_vertex_indices', 0))
 
 
-def edge_angles(mesh):
-    '''Mapping from nonleaf vertices to (angle, edge0, edge1)'''
+def bifurcation_function(mesh, bf, default=-1):
+    '''Each vertex that is bifucation gets value bf[edges@bifurcation]'''
     mesh.init(0, 1)
     e2v, v2e = mesh.topology()(1, 0), mesh.topology()(0, 1)
-    
-    for v in range(nvertices):
+    x = mesh.coordinates()
+
+    V = df.FunctionSpace(mesh, 'CG', 1)
+    v2d = df.vertex_to_dof_map(V)
+
+    values = default*np.ones(V.dim())
+    for v in range(mesh.num_vertices()):
         edges = v2e(v)
-        for e0, e1
+        if len(edges) > 1:
+            edges = [x[sorted(e2v(e), key=lambda vi: vi == v)] for e in edges]
+            values[v2d[v]] = bf(edges)
+
+    f = df.Function(V)
+    f.vector().set_local(values)
+
+    return f
+
+
+def bf_max_angle(mesh):
+    '''Largest |u.v| angle of 2 vectors in bifurcation'''
+    def bf(edges):
+        vectors = [np.diff(e, axis=0).flatten() for e in edges]
+        vectors = [v/np.linalg.norm(v) for v in vectors]
+        return max(np.abs(np.dot(v1, v2))
+                   for v1, v2 in combinations(vectors, 2))
+
+    return bifurcation_function(mesh, bf)
+
+
+def bf_min_angle(mesh):
+    '''Smallest |u.v| angle of 2 vectors in bifurcation'''
+    def bf(edges):
+        vectors = [np.diff(e, axis=0).flatten() for e in edges]
+        vectors = [v/np.linalg.norm(v) for v in vectors]
+        return min(np.abs(np.dot(v1, v2))
+                   for v1, v2 in combinations(vectors, 2))
+
+    return bifurcation_function(mesh, bf)
+
+
+def bf_length_ratio(mesh):
+    '''Smallest |u|/|v_max| angle of 2 vectors in bifurcation'''
+    def bf(edges):
+        vectors = [np.diff(e, axis=0).flatten() for e in edges]
+        norms = map(np.linalg.norm, vectors)
+        return min(n/max(norms) for n in norms)
+    
+    return bifurcation_function(mesh, bf)
 
 # --------------------------------------------------------------------
 
@@ -238,6 +282,8 @@ else:
     mesh = make_line_mesh(x, cells)
 
 
+#bifurcation_function(mesh, None)
+
 lengths = edge_lengths(mesh)
 length_array = lengths.vector().get_local()
 l0, l1 = length_array.min(), length_array.max()
@@ -250,148 +296,172 @@ print 'Reduced length', sum(length_array[idx])/sum(length_array)
 
 # ---
 
-lmesh, _, __ = make_submesh(mesh, idx)
+lmesh, lcmap, lvmap = make_submesh(mesh, idx)
 lengths = edge_lengths(lmesh)
 length_array = lengths.vector().get_local()
+
+df.File('lmesh.pvd') << lmesh
+
+df.File('ff.pvd') << bf_length_ratio(lmesh)
+
+
+exit()
 
 tagged_cc = connected_components(lmesh)
 idx = find_edges(tagged_cc, predicate=lambda v, x: v == 1)
 
-print 'Reduced length by', sum(length_array[idx])/sum(length_array)
+print 'Reduced length', sum(length_array[idx])/sum(length_array)
 
-tmesh, _, __ = make_submesh(lmesh, idx)
+tmesh, tcmap, tlmap = make_submesh(lmesh, idx)
 
-df.File('foo.pvd') << tmesh
+df.File('tmesh.pvd') << tmesh
 
-x = tmesh.coordinates()
-x0, x1 = x.min(axis=0), x.max(axis=0)
 
-z0, z1 = x0[-1], x1[-1]
-zi = np.linspace(z0, z1, 2)
-
-from mbed.meshing import embed_mesh1d
-import sys
-
-foo = df.MeshFunction('size_t', tmesh, 1, 0)
-values = foo.array()
-for tag, (z0, z1) in enumerate(zip(zi[:-1], zi[1:]), 1):
-    values[find_edges(tmesh, lambda x: np.logical_and(z0 - 0.1 < x[:, 2], x[:, 2] < z1 + 0.1))] = tag
-
-    idx, = np.where(values == tag)
-
-    mesh, _, __ = make_submesh(tmesh, idx)
-
-    embedding = embed_mesh1d(mesh,
-                             bounding_shape=0.01,
-                             how='as_lines',
-                             gmsh_args=list(sys.argv),
-                             niters=12,                         
-                             save_geo='model',
-                             save_msh='model',
-                             save_embedding='timo_rat',
-                             return_mesh_only=True)
-
-    vol = df.Function(df.FunctionSpace(embedding, 'DG', 0))
-    vol.vector().set_local(np.fromiter((c.volume() for c in df.cells(embedding)), dtype=float))
-    
-    df.File('mesh_%d.pvd' % tag) << vol
-
-    # --
-
-# tmap = get_terminal_map(tmesh)
+# # Color original
+# foo = df.MeshFunction('size_t', tmesh, 1, 0)
+# foo.array()[:] = np.fromiter(np.arange(1, tmesh.num_cells()+1), dtype=float)
+# df.File('original.pvd') << foo
 
 # x = tmesh.coordinates()
+# x0, x1 = x.min(axis=0), x.max(axis=0)
 
-# tmesh.init(0, 1)
-# v2e = tmesh.topology()(0, 1)
-
-
-# x = tmesh.coordinates()
-
-# dV = np.array([40, 40, 40])
-
-# f = df.MeshFunction('size_t', tmesh, 1, 0)
-# values = f.array()
-
-# tmesh.init(0, 1)
-# e2v, v2e = tmesh.topology()(1, 0), tmesh.topology()(0, 1)
-
-# tag = 1
-
-# terminal_map = get_terminal_map(tmesh)
-# terminals = np.array([k for k, v in terminal_map.items() if len(v) > 2])
-
-# terminals_x = x[terminals]
-
-# cell_nodes = tmesh.cells().flatten()
-
-# kill_node = tmesh.num_vertices() + 1
-# for x0 in subwindows(tmesh, dV=dV):
-#     x1 = x0 + dV
-#     predicate = lambda x, x0=x0, x1=x1: np.all(np.logical_and(x > x0, x < x1), axis=1)
-#     idx, = np.where(predicate(terminals_x))
-    
-#     if len(idx) > 4:
-#         cluster_points = terminals[idx]
-#         cluster_x = terminals_x[idx] 
-#         D = pdist(cluster_x)
-#     #print min(D), max(D), (min(idx), np.mean(idx), max(idx)), (x0, x1)
-#         d = np.mean(D)
-#         #distances.append(np.mean(D))
-#         if d < 50:
-#             edges = np.unique(np.hstack(map(v2e, cluster_points))) 
-#             values[edges] = tag
-
-#             vertices = np.unique(np.hstack(map(e2v, edges)))
-
-#             # center = np.mean(cluster_x, axis=0)
-#             # center = cluster_points[np.argmin(np.linalg.norm(cluster_x - center, 2, axis=1))]
-
-#             for p in cluster_points:
-#                 cell_nodes[cell_nodes == p] = kill_node #center
-            
-#             #subs, = np.where(cell_nodes[0::2] == cell_nodes[1::2])
-#             #my_subs = set(subs) - invalid
-#             #print len(my_subs)
-#             #invalid.update(my_subs)
-
-#             tag += 1
-# print('Cluster count', tag)
-
-# cells = cell_nodes.reshape((-1, 2))
-
-# # invalid, = np.where(cells[:, 0] == cells[:, 1])
-# invalid = np.unique(np.r_[np.where(cells[:, 0] == kill_node)[0],
-#                           np.where(cells[:, 1] == kill_node)[0]])
-
-# print len(invalid), len(cells)
-
-# cells = np.delete(cells, invalid, axis=0)
-
-# # Recombine
-# nodes = np.unique(cells.flatten())
-# old2new = {o: n for n, o in enumerate(nodes)}
-
-# new_x = x[nodes]
-# new_cells = np.array([old2new[n] for n in cells.flatten()]).reshape((-1, 2))
-
-# from mbed.generation import make_line_mesh
-
-# xx = make_line_mesh(new_x, new_cells)
-
-# df.File('lala.pvd') << xx
-
-            
-# df.File('clusters_q.pvd') << f
+# z0, z1 = x0[-1], x1[-1]
+# zi = np.linspace(z0, z1, 5)
 
 # from mbed.meshing import embed_mesh1d
 # import sys
 
-# embedding = embed_mesh1d(tmesh,
-#                          bounding_shape=0.01,
-#                          how='as_lines',
-#                          gmsh_args=list(sys.argv),
-#                          niters=12,                         
-#                          save_geo='model',
-#                          save_msh='model',
-#                          save_embedding='timo_rat')
+# foo = df.MeshFunction('size_t', tmesh, 1, 0)
+# values = foo.array()
+
+# for tag, (z0, z1) in enumerate(zip(zi[:-1], zi[1:]), 1):
+#     values[find_edges(tmesh, lambda x: np.logical_and(z0 - 0.1 < x[:, 2], x[:, 2] < z1 + 0.1))] = tag
+
+#     idx, = np.where(values == tag)
+
+#     mesh, _, __ = make_submesh(tmesh, idx)
+
+#     embedding = embed_mesh1d(mesh,
+#                              bounding_shape=0.01,
+#                              how='as_points',
+#                              gmsh_args=sys.argv,
+#                              niters=2,
+#                              save_geo='model',
+#                              save_msh='model',
+#                              save_embedding='timo_rat')
+
+#     foo = df.MeshFunction('size_t', mesh, 1, 0)
+#     foo.array()[:] = np.fromiter(np.arange(1, mesh.num_cells()+1), dtype=float)
+
+#     bar = embedding.edge_coloring
+
+#     edge_lookup = embedding.nc_edge_encoding.as_edges
+#     for k in edge_lookup:
+#         color = k + 1
+#         foo.array()[foo == color] = 0
+#         for e in edge_lookup[k]:
+#             bar.array()[e] = 0
+
+
+#     df.File('timo_rat/mesh_%d.pvd' % tag) << bar
+#     df.File('timo_rat/original_mesh_%d.pvd' % tag) << foo
+
+#     # --
+
+# # tmap = get_terminal_map(tmesh)
+
+# # x = tmesh.coordinates()
+
+# # tmesh.init(0, 1)
+# # v2e = tmesh.topology()(0, 1)
+
+
+# # x = tmesh.coordinates()
+
+# # dV = np.array([40, 40, 40])
+
+# # f = df.MeshFunction('size_t', tmesh, 1, 0)
+# # values = f.array()
+
+# # tmesh.init(0, 1)
+# # e2v, v2e = tmesh.topology()(1, 0), tmesh.topology()(0, 1)
+
+# # tag = 1
+
+# # terminal_map = get_terminal_map(tmesh)
+# # terminals = np.array([k for k, v in terminal_map.items() if len(v) > 2])
+
+# # terminals_x = x[terminals]
+
+# # cell_nodes = tmesh.cells().flatten()
+
+# # kill_node = tmesh.num_vertices() + 1
+# # for x0 in subwindows(tmesh, dV=dV):
+# #     x1 = x0 + dV
+# #     predicate = lambda x, x0=x0, x1=x1: np.all(np.logical_and(x > x0, x < x1), axis=1)
+# #     idx, = np.where(predicate(terminals_x))
+    
+# #     if len(idx) > 4:
+# #         cluster_points = terminals[idx]
+# #         cluster_x = terminals_x[idx] 
+# #         D = pdist(cluster_x)
+# #     #print min(D), max(D), (min(idx), np.mean(idx), max(idx)), (x0, x1)
+# #         d = np.mean(D)
+# #         #distances.append(np.mean(D))
+# #         if d < 50:
+# #             edges = np.unique(np.hstack(map(v2e, cluster_points))) 
+# #             values[edges] = tag
+
+# #             vertices = np.unique(np.hstack(map(e2v, edges)))
+
+# #             # center = np.mean(cluster_x, axis=0)
+# #             # center = cluster_points[np.argmin(np.linalg.norm(cluster_x - center, 2, axis=1))]
+
+# #             for p in cluster_points:
+# #                 cell_nodes[cell_nodes == p] = kill_node #center
+            
+# #             #subs, = np.where(cell_nodes[0::2] == cell_nodes[1::2])
+# #             #my_subs = set(subs) - invalid
+# #             #print len(my_subs)
+# #             #invalid.update(my_subs)
+
+# #             tag += 1
+# # print('Cluster count', tag)
+
+# # cells = cell_nodes.reshape((-1, 2))
+
+# # # invalid, = np.where(cells[:, 0] == cells[:, 1])
+# # invalid = np.unique(np.r_[np.where(cells[:, 0] == kill_node)[0],
+# #                           np.where(cells[:, 1] == kill_node)[0]])
+
+# # print len(invalid), len(cells)
+
+# # cells = np.delete(cells, invalid, axis=0)
+
+# # # Recombine
+# # nodes = np.unique(cells.flatten())
+# # old2new = {o: n for n, o in enumerate(nodes)}
+
+# # new_x = x[nodes]
+# # new_cells = np.array([old2new[n] for n in cells.flatten()]).reshape((-1, 2))
+
+# # from mbed.generation import make_line_mesh
+
+# # xx = make_line_mesh(new_x, new_cells)
+
+# # df.File('lala.pvd') << xx
+
+            
+# # df.File('clusters_q.pvd') << f
+
+# # from mbed.meshing import embed_mesh1d
+# # import sys
+
+# # embedding = embed_mesh1d(tmesh,
+# #                          bounding_shape=0.01,
+# #                          how='as_lines',
+# #                          gmsh_args=list(sys.argv),
+# #                          niters=12,                         
+# #                          save_geo='model',
+# #                          save_msh='model',
+# #                          save_embedding='timo_rat')
