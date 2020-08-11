@@ -216,8 +216,7 @@ def test_point_skew_2d():
             vs = set(vmap[e2v(e_[-1])])
             assert v1 in vs
 
-    assert False
-
+            
 def test_point_skewPartly_2d():
     '''Not necesarily conform'''
     mesh1d = _1d2d_mesh(4, 32)
