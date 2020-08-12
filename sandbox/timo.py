@@ -22,9 +22,12 @@ original_coloring.array()[:] = np.arange(1, mesh1d.num_entities(1)+1)
 
 df.File('original.pvd') << original_coloring
 
+# Getting thick enough vessels
+radius_filter = lambda v, x: v > 4.5
+
 # 0) Just filter on radius
 if True:
-    idx = find_edges(radius, predicate=lambda v, x: v > 4.5)
+    idx = find_edges(radius, predicate=radius_filter)
     rmesh, rcmap, rlmap = make_submesh(mesh1d, idx)
 
     df.File('meshr.pvd') << rmesh
@@ -105,7 +108,7 @@ tmesh_radius.array()[:] = radius.array()[lcmap[tcmap]]
 df.File('reduced_radius.pvd') << tmesh_radius
 
 # Keep on cells with radius
-idx = find_edges(tmesh_radius, predicate=lambda v, x: v > 4.5)
+idx = find_edges(tmesh_radius, predicate=radius_filter)
 rmesh, rcmap, rlmap = make_submesh(tmesh, idx)
 
 df.File('rmesh.pvd') << rmesh
@@ -138,3 +141,15 @@ bcs = EdgeDirichletBC(V, 2, edge_f, 1)
 _, uh = poisson_solve(V, f, bcs)
 
 df.File('timo_rat/poisson.pvd') << uh
+
+################
+# Loading things
+################
+mesh = df.Mesh()
+h5_file = df.HDF5File(mesh.mpi_comm(), 'timo_rat/mesh.h5', 'r')
+h5_file.read(mesh, 'embedding_mesh', False)
+
+edge_coloring = df.MeshFunction('size_t', mesh, 1, 0)
+h5_file.read(edge_coloring, 'edge_coloring')
+h5_file.close()
+
