@@ -76,7 +76,7 @@ def configure_options(**kwargs):
     else:
         d = kwargs['save_embedding']
         d and (not os.path.exists(d) and (os.makedirs(d)))
-        
+
     if 'save_geo' in kwargs:
         if kwargs['save_embedding']:
             kwargs['save_geo'] = os.path.join(kwargs['save_embedding'], kwargs['save_geo'])
@@ -93,4 +93,14 @@ def configure_options(**kwargs):
     else:
         kwargs['save_msh'] = ''
 
+    # Do we need an auxiliary folder for storing point mesh gen monitor
+    if 'monitor' not in kwargs:
+        kwargs['monitor'] = False
+    else:
+        if kwargs['monitor']:
+            path = os.path.join(kwargs['save_embedding'], 'monitor')
+            kwargs['monitor'] = path
+
+            path and (not os.path.exists(path) and (os.makedirs(path)))
+            
     return kwargs

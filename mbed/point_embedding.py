@@ -1,10 +1,13 @@
 from collections import defaultdict
+import mbed.trimming as trim
+from copy import deepcopy
 import networkx as nx
 import dolfin as df
 import numpy as np
 import conversion
 import utils
 import gmsh
+import os
 
 
 def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
@@ -13,10 +16,16 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     to insert intermediate points so that also edges are embedded 
     '''
     x = mesh1d.coordinates()
+
+    foo = df.MeshFunction('size_t', mesh1d, 1, 0)
+    foo.array()[:] = np.arange(1, 1 + mesh1d.num_cells())
+    df.File('foo.pvd') << foo
     
     mesh1d.init(1, 0)
     e2v = mesh1d.topology()(1, 0)
     topology = [list(e2v(e)) for e in range(mesh1d.num_entities(1))]
+
+    target_l = trim.edge_lengths(mesh1d).vector().get_local()
 
     converged, nneeds = False, [mesh1d.num_cells()]
     niters = kwargs.get('niters', 5)
@@ -33,7 +42,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
-        nneeds.append(sum(map(len, needs_embedding)))
+        nneeds.append(len(filter(bool, needs_embedding)))
         utils.print_green(' ', '# edges need embedding %d (was %r)' % (nneeds[-1], nneeds[:-1]))
         converged = not any(needs_embedding)
 
@@ -41,7 +50,50 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
             gmsh.fltk.initialize()
             gmsh.fltk.run()
 
-        if converged: break
+        # Here's some debugging functionality which saves progress on emebdding
+        if kwargs['monitor']:
+            # Force current mesh1d embedding
+            help_topology = _force_embed_edges(deepcopy([list(vmap[edge]) for edge in topology]),
+                                               embedding_mesh,
+                                               needs_embedding,
+                                               defaultdict(list))
+            # And see about the length of edges under that embedding
+            new_l = _edge_lengths(embedding_mesh.coordinates(),
+                                  help_topology, needs_embedding)
+            np.savetxt(os.path.join(kwargs['monitor'], 'length_diff_iter%d.txt' % k), (new_l-target_l)/new_l)
+            utils.print_green(' ', 'Max relative length error', np.max(new_l))
+                       
+            # And distance
+            new_d = _edge_distances(embedding_mesh.coordinates(),
+                                    help_topology, needs_embedding)
+            np.savetxt(os.path.join(kwargs['monitor'], 'distance_diff_iter%d.txt' % k), new_d)
+            utils.print_green(' ', 'Max relative distance error', np.max(new_d))
+
+            old_l = target_l.sum()
+            new_l = new_l.sum()
+            utils.print_green(' ', 'Target %g, Current %g, Relative Error %g' % (old_l, new_l, (new_l-old_l)/old_l))
+            
+            # Save the edges which needed embedding
+            embedding_mesh.init(1, 0)
+            e2v = embedding_mesh.topology()(1, 0)
+            edge_lookup = {tuple(sorted(e2v(e))): e for e in range(embedding_mesh.num_entities(1))}
+            
+            edge_f = df.MeshFunction('size_t', embedding_mesh, 1, 0)
+            topology_as_edge = []
+    
+            for tag, edge in enumerate(help_topology, 1):
+                if needs_embedding[tag-1]:
+                    the_edge = []
+                    for e in zip(edge[:-1], edge[1:]):
+                        edge_index = edge_lookup[tuple(sorted(e))]
+                        # assert edge_f[edge_index] == 0  # Never seen
+                        edge_f[edge_index] = tag
+                        the_edge.append(edge_index)
+                        topology_as_edge.append(the_edge)
+                
+            df.File(os.path.join(kwargs['monitor'], 'need_embedding_iter%d.pvd' % k)) << edge_f
+
+        if converged: break            
 
         # Insert auxiliary points and retry
         t = utils.Timer('%d-th iteration of point insert' % k, 1)        
@@ -68,6 +120,41 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         t = utils.Timer('Force embedding edges', 1)
         topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embed_vertex)
         t.done()
+
+        # And see about the length of edges under that embedding
+        new_l = _edge_lengths(embedding_mesh.coordinates(), topology, needs_embedding)
+        np.savetxt(os.path.join(kwargs['monitor'], 'length_diff_final.txt'), (new_l-target_l)/target_l)
+        utils.print_green(' ', 'Max relative length error', np.max(new_l))
+                       
+        # And distance
+        new_d = _edge_distances(embedding_mesh.coordinates(), topology, needs_embedding)
+        np.savetxt(os.path.join(kwargs['monitor'], 'distance_diff_final.txt'), new_d)
+        utils.print_green(' ', 'Max relative distance error', np.max(new_d))
+
+
+        old_l = target_l.sum()
+        new_l = new_l.sum()
+        utils.print_green(' ', 'Target %g, Current %g, Relative Error %g' % (old_l, new_l, (new_l-old_l)/old_l))
+        
+        # Save the edges which needed embedding
+        embedding_mesh.init(1, 0)
+        e2v = embedding_mesh.topology()(1, 0)
+        edge_lookup = {tuple(sorted(e2v(e))): e for e in range(embedding_mesh.num_entities(1))}
+            
+        edge_f = df.MeshFunction('size_t', embedding_mesh, 1, 0)
+        topology_as_edge = []
+    
+        for tag, edge in enumerate(topology, 1):
+            if needs_embedding[tag-1]:
+                the_edge = []
+                for e in zip(edge[:-1], edge[1:]):
+                    edge_index = edge_lookup[tuple(sorted(e))]
+                    # assert edge_f[edge_index] == 0  # Never seen
+                    edge_f[edge_index] = tag
+                    the_edge.append(edge_index)
+                    topology_as_edge.append(the_edge)
+                
+        df.File(os.path.join(kwargs['monitor'], 'need_embedding_final.pvd')) << edge_f
     else:
         # Since the original 1d mesh likely has been changed we give
         # topology wrt to node numbering of the embedding mesh
@@ -98,6 +185,8 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
                        for k, edge_as_vertex in skew_embed_vertex.items()}
     t.done()
 
+    df.File('foo_final.pvd') << edge_f
+
     ans = utils.LineMeshEmbedding(embedding_mesh,
                                   # The others were not part of original data
                                   vmap[:mesh1d.num_vertices()],  
@@ -108,6 +197,51 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     kwargs['save_embedding'] and utils.save_embedding(ans, kwargs['save_embedding'])
 
     return ans
+
+
+def _edge_lengths(x, topology, edges):
+    '''Lengths of edges from vertices in topology[edge]'''
+    # NOTE: we report |len(Gamma_hat) - len(Gamma)|/len(Gamma)
+    assert len(topology) == len(edges)
+    lengths = []
+    for vertices, needs in zip(topology, edges):
+        # Length that we should see
+        A, B = x[vertices[0]], x[vertices[-1]]
+        straight = np.linalg.norm(A - B)
+        if needs:
+            vertices = x[vertices]
+            curved = (sum(np.linalg.norm(x1 - x0) for x0, x1 in zip(vertices[:-1], vertices[1:])))
+        else:
+            curved = straight
+
+        lengths.append(curved)
+    return np.array(lengths)
+
+
+def _edge_distances(x, topology, edges):
+    '''Distance of topology[edge] from the true straigth edge'''
+    # NOTE: we report |len(Gamma_hat) - len(Gamma)|/len(Gamma)
+    assert len(topology) == len(edges)
+    lengths = []
+    for vertices, needs in zip(topology, edges):
+        # Length that we should see
+        A, B = x[vertices[0]], x[vertices[-1]]
+        straight = np.linalg.norm(A - B)
+        if needs:
+            vertices = x[vertices]
+
+            ts = np.array([np.dot(P-A, B-A)/straight for P in vertices])
+            # Project where it makes sense            
+            if np.all(np.logical_and(ts > -1E-13, ts < 1+1E-13)):
+                dists = np.array([np.linalg.norm(P - (A + t*(B-A))) for t, P in zip(ts, vertices)])
+                distance = np.trapz(np.array(dists), np.array(ts))
+            else:
+                distance = -1
+        else:
+            distance = 0
+        
+        lengths.append(distance/straight)
+    return np.array(lengths)
 
 
 def _force_embed_edges(topology, mesh, edges2refine, skewed):

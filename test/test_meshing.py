@@ -155,16 +155,17 @@ def test_point_3d():
     assert _embed_edgeencode(mesh1d, embedding)
     
 
-def test_point_skew_2d():
+def test_point_skew_2d(niters=1, **kwargs):
     '''Not necesarily conform'''
     mesh1d = _1d2d_mesh(4)
     embedding = embed_mesh1d(mesh1d,
                              bounding_shape=0.1, 
                              how='as_points',
                              gmsh_args=[],
-                             niters=1,
+                             niters=niters,
                              debug=False,
-                             save_geo='')
+                             save_geo='',
+                             **kwargs)
 
     skewed = embedding.nc_edge_encoding.as_vertices
     assert skewed
@@ -200,8 +201,7 @@ def test_point_skew_2d():
 
     vmap = embedding.vertex_map
     encode = embedding.edge_encoding.as_edges
-    print encode
-    print skewed
+
     # We can combine the maps to pick correctly embedded edges
     for edge in range(mesh1d.num_cells()):
         if edge not in skewed:
@@ -392,4 +392,4 @@ def test_point_skew_stl_3d():
                 assert v2 == min(mids, key=path_length)
 
 
-test_point_skewPartly_2d()                
+test_point_skew_2d(niters=1, save_embedding='foo', monitor=True)                
