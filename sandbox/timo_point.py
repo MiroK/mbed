@@ -26,7 +26,7 @@ df.File('original.pvd') << original_coloring
 radius_filter = lambda v, x: v > 4.5
 
 # 0) Just filter on radius
-if True:
+if False:
     idx = find_edges(radius, predicate=radius_filter)
     rmesh, rcmap, rlmap = make_submesh(mesh1d, idx)
 
@@ -63,8 +63,6 @@ if True:
 
     df.File('point_rat_timo/poisson.pvd') << uh
 
-
-exit()
 # Preprocessing the mesh proceeds in several step.
 # 1) Removing short edges
 # Consider the curve below which plots for interval [l0, l1] a sum length
@@ -86,6 +84,11 @@ tol = (l1 - l0)/1000.
 
 idx = find_edges(lengths, predicate=lambda v, x: ~np.logical_and(l0 - tol < v,
                                                                  v < l1 + tol))
+
+from mbed.preprocessing import stitch
+a, b, c = stitch(mesh1d, find_edges(lengths, predicate=lambda v, x: np.logical_and(l0 - tol < v,
+                                                                                   v < l1 + tol)))
+
 # This removal results in preserving almost the entire length of the mesh
 print 'Reduced length', sum(length_array[idx])/sum(length_array)
 

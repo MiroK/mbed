@@ -1,5 +1,6 @@
 from mbed.trimming import edge_lengths, find_edges
 from mbed.generation import make_line_mesh
+import networkx as nx
 from math import ceil
 import numpy as np
 
@@ -12,30 +13,72 @@ def stitch(mesh, edges):
     # We want to rewrite this such that given edges are 
     # kept but based on their connectivity we perform stitches
     # changing other cells
+    e2v = mesh.topology()(1, 0)
+    # NOTE: by saying that edge is to be removed we're saying that its
+    # vertices can be regarded as same. A piece of graph of connected
+    # edges is thus a substitution rule that all vertices in that piece
+    # can be condensed
+    g = nx.Graph()
+    g.add_edges_from(map(e2v, edges))
+
+    rules = {}
+    # Substitution rule
+    for cc in sorted(nx.algorithms.connected_components(g), key=len):
+        substitute = cc.pop()
+        for node in cc:
+            assert node not in rules
+            rules[node] = substitute
+
+    # Edges are definitely part of the new mesh. Some other cells might
+    # be added as well if substitution produces two equal nodes
+    edges = list(edges)
+    # We want to keep a mapping from new mesh cell_idx to what was approx
+    # the parent cells in the oritinal mesh
+    cell_map, new_cells = [], []
+    # Now we rewrite
     cells = mesh.cells().tolist()
+    for cell_id, cell in enumerate(cells):
+        if cell_id not in edges:
+            # Subs
+            if cell[0] in rules: cell[0] = rules[cell[0]]
+            if cell[1] in rules: cell[1] = rules[cell[1]]
+            # Invalid
+            cell[0] == cell[1] and edges.append(cell_id)
+            # A valid cell will keep it's position in new mesh
+            if cell[0] != cell[1]:
+                cell_map.append(cell_id)
+                new_cells.append(cell)
 
-    mesh.init(0, 1)
-    v2e, e2v = mesh.topology()(0, 1), mesh.topology()(1, 0)
+    # Which vertices will be used; this is also a map from new to old
+    vertex_map = list(set(sum(new_cells, [])))
+    # Need to finally rewrte the cells this way; so vertex old -> new needed
+    ivertex_map = {o: n for n, o in enumerate(vertex_map)}
+    new_cells = np.fromiter((ivertex_map[v] for v in sum(new_cells, [])), dtype='uintp').reshape((-1, 2))
 
-    edges, rewritten_edges, removed_vertices = set(edges), set(), set()
-    for edge in edges:
-        if edge not in rewritten_edges:
-            v_remove, v_keep = sorted(e2v(edge), key=lambda e: len(e2v(e)))
-            removed_vertices.add(v_remove)
+    new_coordinates = mesh.coordinates()[vertex_map]
+
+    return make_line_mesh(new_coordinates, new_cells), cell_map, vertex_map
+
+
+    # edges, rewritten_edges, removed_vertices = set(edges), set(), set()
+    # for edge in edges:
+    #     if edge not in rewritten_edges:
+    #         v_remove, v_keep = sorted(e2v(edge), key=lambda e: len(e2v(e)))
+    #         removed_vertices.add(v_remove)
             
-            rewrite_edges = set(v2e(v_remove))
+    #         rewrite_edges = set(v2e(v_remove))
 
-            for e in rewrite_edges:
-                if e in rewritten_edges: continue
+    #         for e in rewrite_edges:
+    #             if e in rewritten_edges: continue
 
-                cell = cells[e]
-                if v_remove in cell:
-                    print cell, (v_remove, v_keep), 
-                    cell[e2v(e).tolist().index(v_remove)] = v_keep
-                    print '->', cell
-                    rewritten_edges.add(e)
-        print
-    print cells
+    #             cell = cells[e]
+    #             if v_remove in cell:
+    #                 print cell, (v_remove, v_keep), 
+    #                 cell[e2v(e).tolist().index(v_remove)] = v_keep
+    #                 print '->', cell
+    #                 rewritten_edges.add(e)
+    #     print
+    # print cells
 
 
 
@@ -126,4 +169,5 @@ if __name__ == '__main__':
 
     mesh = make_line_mesh(vertices, cells)
 
-    stitch(mesh, [0, 1, 2])
+    smesh = stitch(mesh, [0, 1, 2])[0]
+    print smesh.num_cells()
