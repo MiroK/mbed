@@ -391,5 +391,4 @@ def test_point_skew_stl_3d():
                 path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
                 assert v2 == min(mids, key=path_length)
 
-
-test_point_skew_2d(niters=1, save_embedding='foo', monitor=True)                
+# test_point_skew_2d(niters=1, save_embedding='foo', monitor=True)                

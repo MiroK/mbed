@@ -121,40 +121,41 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         topology = _force_embed_edges(topology, embedding_mesh, needs_embedding, skew_embed_vertex)
         t.done()
 
-        # And see about the length of edges under that embedding
-        new_l = _edge_lengths(embedding_mesh.coordinates(), topology, needs_embedding)
-        np.savetxt(os.path.join(kwargs['monitor'], 'length_diff_final.txt'), (new_l-target_l)/target_l)
-        utils.print_green(' ', 'Max relative length error', np.max(new_l))
+        if kwargs['monitor']:        
+            # And see about the length of edges under that embedding
+            new_l = _edge_lengths(embedding_mesh.coordinates(), topology, needs_embedding)
+            np.savetxt(os.path.join(kwargs['monitor'], 'length_diff_final.txt'), (new_l-target_l)/target_l)
+            utils.print_green(' ', 'Max relative length error', np.max(new_l))
                        
-        # And distance
-        new_d = _edge_distances(embedding_mesh.coordinates(), topology, needs_embedding)
-        np.savetxt(os.path.join(kwargs['monitor'], 'distance_diff_final.txt'), new_d)
-        utils.print_green(' ', 'Max relative distance error', np.max(new_d))
+            # And distance
+            new_d = _edge_distances(embedding_mesh.coordinates(), topology, needs_embedding)
+            np.savetxt(os.path.join(kwargs['monitor'], 'distance_diff_final.txt'), new_d)
+            utils.print_green(' ', 'Max relative distance error', np.max(new_d))
 
 
-        old_l = target_l.sum()
-        new_l = new_l.sum()
-        utils.print_green(' ', 'Target %g, Current %g, Relative Error %g' % (old_l, new_l, (new_l-old_l)/old_l))
+            old_l = target_l.sum()
+            new_l = new_l.sum()
+            utils.print_green(' ', 'Target %g, Current %g, Relative Error %g' % (old_l, new_l, (new_l-old_l)/old_l))
         
-        # Save the edges which needed embedding
-        embedding_mesh.init(1, 0)
-        e2v = embedding_mesh.topology()(1, 0)
-        edge_lookup = {tuple(sorted(e2v(e))): e for e in range(embedding_mesh.num_entities(1))}
+            # Save the edges which needed embedding
+            embedding_mesh.init(1, 0)
+            e2v = embedding_mesh.topology()(1, 0)
+            edge_lookup = {tuple(sorted(e2v(e))): e for e in range(embedding_mesh.num_entities(1))}
             
-        edge_f = df.MeshFunction('size_t', embedding_mesh, 1, 0)
-        topology_as_edge = []
+            edge_f = df.MeshFunction('size_t', embedding_mesh, 1, 0)
+            topology_as_edge = []
     
-        for tag, edge in enumerate(topology, 1):
-            if needs_embedding[tag-1]:
-                the_edge = []
-                for e in zip(edge[:-1], edge[1:]):
-                    edge_index = edge_lookup[tuple(sorted(e))]
-                    # assert edge_f[edge_index] == 0  # Never seen
-                    edge_f[edge_index] = tag
-                    the_edge.append(edge_index)
+            for tag, edge in enumerate(topology, 1):
+                if needs_embedding[tag-1]:
+                    the_edge = []
+                    for e in zip(edge[:-1], edge[1:]):
+                        edge_index = edge_lookup[tuple(sorted(e))]
+                        # assert edge_f[edge_index] == 0  # Never seen
+                        edge_f[edge_index] = tag
+                        the_edge.append(edge_index)
                     topology_as_edge.append(the_edge)
                 
-        df.File(os.path.join(kwargs['monitor'], 'need_embedding_final.pvd')) << edge_f
+            df.File(os.path.join(kwargs['monitor'], 'need_embedding_final.pvd')) << edge_f
     else:
         # Since the original 1d mesh likely has been changed we give
         # topology wrt to node numbering of the embedding mesh

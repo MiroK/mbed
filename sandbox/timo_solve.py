@@ -1,12 +1,15 @@
 from perfusion.boundary_conditions import poisson_solve, EdgeDirichletBC
 import dolfin as df
+import os
+
 
 # NOTE: this is important to get the edges synced correctly
 df.parameters['ghost_mode'] = 'shared_vertex'
 
+embedding_folder = './rat_timo'
 
 mesh = df.Mesh()
-h5_file = df.HDF5File(mesh.mpi_comm(), 'rat_timo/mesh.h5', 'r')
+h5_file = df.HDF5File(mesh.mpi_comm(), .os.path.join(embedding_folder, 'mesh.h5'), 'r')
 h5_file.read(mesh, 'embedding_mesh', False)
 
 
