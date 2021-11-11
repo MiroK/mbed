@@ -19,7 +19,7 @@ def stitch(mesh, edges):
     # edges is thus a substitution rule that all vertices in that piece
     # can be condensed
     g = nx.Graph()
-    g.add_edges_from(map(e2v, edges))
+    g.add_edges_from(list(map(e2v, edges)))
 
     rules = {}
     # Substitution rule
@@ -170,4 +170,4 @@ if __name__ == '__main__':
     mesh = make_line_mesh(vertices, cells)
 
     smesh = stitch(mesh, [0, 1, 2])[0]
-    print smesh.num_cells()
+    print(smesh.num_cells())

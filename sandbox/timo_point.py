@@ -31,10 +31,10 @@ if False:
     rmesh, rcmap, rlmap = make_submesh(mesh1d, idx)
 
     df.File('meshr.pvd') << rmesh
-    print edge_lengths(rmesh).vector().max(), rmesh.num_cells(), rmesh.num_vertices()
+    print(edge_lengths(rmesh).vector().max(), rmesh.num_cells(), rmesh.num_vertices())
 
     rmesh, _ = refine(rmesh, threshold=20)
-    print edge_lengths(rmesh).vector().max(), rmesh.num_cells(), rmesh.num_vertices()    
+    print(edge_lengths(rmesh).vector().max(), rmesh.num_cells(), rmesh.num_vertices())    
 
     embedding = embed_mesh1d(rmesh,
                          bounding_shape=0.01,
@@ -90,7 +90,7 @@ a, b, c = stitch(mesh1d, find_edges(lengths, predicate=lambda v, x: np.logical_a
                                                                                    v < l1 + tol)))
 
 # This removal results in preserving almost the entire length of the mesh
-print 'Reduced length', sum(length_array[idx])/sum(length_array)
+print('Reduced length', sum(length_array[idx])/sum(length_array))
 
 lmesh, lcmap, lvmap = make_submesh(mesh1d, idx)
 lengths = edge_lengths(lmesh)
@@ -105,7 +105,7 @@ tagged_cc = connected_components(lmesh)
 idx = find_edges(tagged_cc, predicate=lambda v, x: v == 1)
 # The reduction in area is not considerable; so the graph is indeed highly
 # connected
-print 'Reduced length', sum(length_array[idx])/sum(length_array)
+print('Reduced length', sum(length_array[idx])/sum(length_array))
 
 tmesh, tcmap, tlmap = make_submesh(lmesh, idx)
 

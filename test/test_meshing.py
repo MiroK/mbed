@@ -208,7 +208,7 @@ def test_point_skew_2d(niters=1, **kwargs):
             v0, v1 = e2v(edge)
 
             e_ = encode[edge]
-            print e_, '<--'
+            print(e_, '<--')
             
             vs = set(vmap[e2v(e_[0])])
             assert v0 not in vs
@@ -391,4 +391,5 @@ def test_point_skew_stl_3d():
                 path_length = lambda v: np.linalg.norm(x[v0] - x[v], 2) + np.linalg.norm(x[v1] - x[v], 2) 
                 assert v2 == min(mids, key=path_length)
 
+test_line_stl_3d()                
 # test_point_skew_2d(niters=1, save_embedding='foo', monitor=True)                

@@ -4,8 +4,8 @@ from copy import deepcopy
 import networkx as nx
 import dolfin as df
 import numpy as np
-import conversion
-import utils
+from . import conversion
+from . import utils
 import gmsh
 import os
 
@@ -42,7 +42,7 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
         assert _embeds_points(embedding_mesh, x, vmap)
         # See which edges need to be improved
         needs_embedding = _not_embedded_edges(topology, vmap, embedding_mesh)
-        nneeds.append(len(filter(bool, needs_embedding)))
+        nneeds.append(len(list(filter(bool, needs_embedding))))
         utils.print_green(' ', '# edges need embedding %d (was %r)' % (nneeds[-1], nneeds[:-1]))
         converged = not any(needs_embedding)
 
@@ -182,8 +182,8 @@ def point_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
 
     encode_edge = lambda path: [edge_lookup[tuple(sorted(e))] for e in zip(path[:-1], path[1:])]
     # Finally encode skew edges as edges
-    skew_embed_edge = {k: map(encode_edge, edge_as_vertex)
-                       for k, edge_as_vertex in skew_embed_vertex.items()}
+    skew_embed_edge = {k: list(map(encode_edge, edge_as_vertex))
+                       for k, edge_as_vertex in list(skew_embed_vertex.items())}
     t.done()
 
     df.File('foo_final.pvd') << edge_f
@@ -252,7 +252,7 @@ def _force_embed_edges(topology, mesh, edges2refine, skewed):
     '''
     mesh.init(1, 0)
     e2v = mesh.topology()(1, 0)
-    edges = np.array(map(e2v, range(mesh.num_entities(1))))
+    edges = np.array(list(map(e2v, list(range(mesh.num_entities(1))))))
     # For path computation build a graph where edges are weighted by
     # physical distance of nodes
     x = mesh.coordinates()

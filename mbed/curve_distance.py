@@ -14,13 +14,13 @@ def curve_isected_cells(curve_f, predicate=lambda x: x > 0):
 
     mesh.init(1, 0)
     e2v = mesh.topology()(1, 0)
-    vertices = np.unique(np.hstack(map(e2v, edges)))
+    vertices = np.unique(np.hstack(list(map(e2v, edges))))
 
     tdim = mesh.topology().dim()
     mesh.init(0, tdim)
     v2c = mesh.topology()(0, tdim)
     
-    return np.unique(np.hstack(map(v2c, vertices)))
+    return np.unique(np.hstack(list(map(v2c, vertices))))
 
 
 def layer_neighbor_cell_generator(tagged_cells):
@@ -50,9 +50,9 @@ def layer_neighbor_cell_generator(tagged_cells):
         # Collect vertices for computing
         # FIXME: not sure it is correct to only compute the neigbohors of
         # the previous layer, perhaps all should be included?
-        vertices = np.unique(np.hstack(map(c2v, previous_gen)))
+        vertices = np.unique(np.hstack(list(map(c2v, previous_gen))))
         # The new guys
-        previous_gen = np.fromiter(untagged_cells & set(np.unique(np.hstack(map(v2c, vertices)))),
+        previous_gen = np.fromiter(untagged_cells & set(np.unique(np.hstack(list(map(v2c, vertices))))),
                                    dtype='uintp')
 
         yield previous_gen
@@ -89,7 +89,7 @@ def layer_neighbor_vertex_generator(edge_f, nlayers=5):
     mesh.init(1, 0)
     e2v = mesh.topology()(1, 0)
     # First layer - vertices that make up marked edges
-    layer0 = set(np.concatenate(map(e2v, np.where(edge_f.array() == 1)[0])))
+    layer0 = set(np.concatenate(list(map(e2v, np.where(edge_f.array() == 1)[0]))))
     yield layer0
     nlayers -= 1
 
@@ -104,7 +104,7 @@ def layer_neighbor_vertex_generator(edge_f, nlayers=5):
 
     while nlayers:
         layer_cells = next(layers)
-        layer_cells_as_vtx = set(np.concatenate(map(c2v, layer_cells)))
+        layer_cells_as_vtx = set(np.concatenate(list(map(c2v, layer_cells))))
         # We keep those not connected to previous?
         layer0 = layer_cells_as_vtx - layer0
 
@@ -138,7 +138,7 @@ def curve_distance(edge_f, nlayers=4, outside_val=-1):
     # For others we need to compute distance from edges
     mesh.init(1, 0)
     e2v = mesh.topology()(1, 0)
-    segments = np.row_stack(map(e2v, np.where(edge_f.array() == 1)[0]))
+    segments = np.row_stack(list(map(e2v, np.where(edge_f.array() == 1)[0])))
     # In local numbering
     vtx_idx, segments = np.unique(segments.flatten(), return_inverse=True)
 

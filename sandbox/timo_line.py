@@ -79,7 +79,7 @@ tol = (l1 - l0)/1000.
 idx = find_edges(lengths, predicate=lambda v, x: ~np.logical_and(l0 - tol < v,
                                                                  v < l1 + tol))
 # This removal results in preserving almost the entire length of the mesh
-print 'Reduced length', sum(length_array[idx])/sum(length_array)
+print('Reduced length', sum(length_array[idx])/sum(length_array))
 
 lmesh, lcmap, lvmap = make_submesh(mesh1d, idx)
 lengths = edge_lengths(lmesh)
@@ -94,7 +94,7 @@ tagged_cc = connected_components(lmesh)
 idx = find_edges(tagged_cc, predicate=lambda v, x: v == 1)
 # The reduction in area is not considerable; so the graph is indeed highly
 # connected
-print 'Reduced length', sum(length_array[idx])/sum(length_array)
+print('Reduced length', sum(length_array[idx])/sum(length_array))
 
 tmesh, tcmap, tlmap = make_submesh(lmesh, idx)
 

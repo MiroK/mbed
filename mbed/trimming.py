@@ -81,7 +81,7 @@ def branch_graph(branches):
     # Then it must be that there is a "edge" between branches that are mapped
     # to by the same node
     G = nx.Graph()
-    for branches in v2b.values():
+    for branches in list(v2b.values()):
         if len(branches) > 1:
             G.add_edges_from(combinations(branches, 2))
         else:
@@ -117,7 +117,7 @@ def find_edges(thing, predicate):
         x = thing.coordinates()
         thing.init(1, 0)
         e2v = thing.topology()(1, 0)
-        mids = np.mean(x[map(e2v, range(thing.num_entities(1)))], axis=1)
+        mids = np.mean(x[list(map(e2v, list(range(thing.num_entities(1)))))], axis=1)
         
         return np.where(predicate(mids))[0]
 
@@ -136,7 +136,7 @@ def find_edges(thing, predicate):
     mesh.init(1, 0)
     e2v = mesh.topology()(1, 0)
 
-    mids = np.mean(x[np.array(map(e2v, range(mesh.num_entities(1))))], axis=1)
+    mids = np.mean(x[np.array(list(map(e2v, list(range(mesh.num_entities(1))))))], axis=1)
     
     # Mesh foo otherwise
     return np.where(predicate(thing.array(), mids))[0]
@@ -183,7 +183,7 @@ def edge_histogram(thing, nbins, tol=0.01):
         if len(idx):
             bin_c_values[i] = len(idx)/total_count
             bin_values[i] = sum(lengths[idx])/total_length
-            print l0-tol, l1+tol, bin_values[i], bin_c_values[i]
+            print(l0-tol, l1+tol, bin_values[i], bin_c_values[i])
             
 
     return bins, bin_c_values, bin_values
@@ -278,7 +278,7 @@ def bf_length_ratio(mesh):
     '''Smallest |u|/|v_max| angle of 2 vectors in bifurcation'''
     def bf(edges):
         vectors = [np.diff(e, axis=0).flatten() for e in edges]
-        norms = map(np.linalg.norm, vectors)
+        norms = list(map(np.linalg.norm, vectors))
         return min(n/max(norms) for n in norms)
     
     return bifurcation_function(mesh, bf)

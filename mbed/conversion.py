@@ -1,4 +1,5 @@
 # In memory conversion from GMSH to dolfin
+from dolfin import compile_cpp_code as compile_cpp
 import mbed.utils as utils
 import dolfin as df
 import numpy as np
@@ -7,7 +8,7 @@ import tqdm
 import ufl
 
 
-code='''
+code="""
 #include <dolfin/mesh/Mesh.h>
 #include <dolfin/mesh/MeshEditor.h>
 #include <dolfin/mesh/CellType.h>
@@ -19,10 +20,17 @@ code='''
 #include <unordered_set>
 #include <map>
 
+#include <Eigen/Core>
+#include <pybind11/pybind11.h>
+#include <pybind11/eigen.h>
+
+using IntVecIn = Eigen::Ref<const Eigen::VectorXi>;
+using DoubleVecIn = Eigen::Ref<const Eigen::VectorXd>;
+
 namespace dolfin {
   // Fills a SIMPLICIAL mesh
-  void fill_mesh(const Array<double>& coordinates,
-                 const Array<std::size_t>& cells, 
+  void fill_mesh(const DoubleVecIn coordinates,
+                 const IntVecIn cells, 
                  const int tdim, 
                  const int gdim, 
                  std::shared_ptr<Mesh> mesh)
@@ -65,9 +73,16 @@ namespace dolfin {
      editor.close();
   }
 };
-'''
-module = df.compile_extension_module(code)
 
+PYBIND11_MODULE(SIGNATURE, m)
+{
+    m.def("fill_mesh", &dolfin::fill_mesh);
+}
+
+"""
+# --------------
+
+module = compile_cpp(code)
 
 
 def make_mesh(vertices, cells, cell_type=None):
@@ -212,7 +227,7 @@ def tag_entities(model, dim, tag, e2v, node_map, node_tags, array):
             # Unseen
             maybe,  = np.where(array == 0)
             # We want those have all 1 as vertices [[1, 1, 1, 1], [1, 1, 0, 1], ... ]            
-            tagged_idx,  = np.where(np.prod(node_tags[map(e2v, maybe)], axis=1) == 1)
+            tagged_idx,  = np.where(np.prod(node_tags[list(map(e2v, maybe))], axis=1) == 1)
             array[maybe[tagged_idx]] = tag
         # Vertices decide themselves
         else:
@@ -280,7 +295,7 @@ if __name__ == '__main__':
         mesh, foos = mesh_from_gmshModel(model, include_mesh_functions=-1)
         df.File('xxx.pvd') << mesh
 
-        for d, f in foos.items():
+        for d, f in list(foos.items()):
             df.File('fx_%d.pvd' % d) << f
 
         
@@ -334,5 +349,5 @@ if __name__ == '__main__':
         mesh, foos = mesh_from_gmshModel(model, include_mesh_functions=-1)
         df.File('xxx.pvd') << mesh
 
-        for d, f in foos.items():
+        for d, f in list(foos.items()):
             df.File('fx_%d.pvd' % d) << f

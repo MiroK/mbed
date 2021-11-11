@@ -21,7 +21,7 @@ def test_make_2():
     assert np.linalg.norm(mesh.coordinates() - coords) < 1E-13
     
     cells = np.array([[0, 1], [1, 2], [2, 3], [0, 3], [0, 2]])
-    cells0 = np.array(map(sorted, mesh.cells()))
+    cells0 = np.array(list(map(sorted, mesh.cells())))
     
     assert np.linalg.norm(cells0 - cells) < 1E-13, mesh.cells()
     

@@ -1,4 +1,4 @@
-from __future__ import print_function
+
 from collections import namedtuple
 import os, pickle, time
 import numpy as np
@@ -96,8 +96,9 @@ def is_number(num):
     return isinstance(num, (int, float, np.number))
 
                       
-def between(x, (x0, x1), tol):
+def between(x, xxx_todo_changeme, tol):
     '''Approx x0 <= x <= x1'''
+    (x0, x1) = xxx_todo_changeme
     assert x0 < x1
     return x >= x0 - tol and x <= x1 + tol
 

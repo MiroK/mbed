@@ -1,6 +1,6 @@
 import numpy as np
-import conversion
-import utils
+from . import conversion
+from . import utils
 import tqdm
 import gmsh
 import os
@@ -29,7 +29,7 @@ def line_embed_mesh1d(model, mesh1d, bounding_shape, **kwargs):
     mesh1d.init(1, 0)
     e2v = mesh1d.topology()(1, 0)
     lines, edge_encoding = [], []
-    for edge in tqdm.tqdm(range(mesh1d.num_entities(1))):
+    for edge in tqdm.tqdm(list(range(mesh1d.num_entities(1)))):
         v0, v1 = vertex_map[e2v(edge)] + 1
         line = model.geo.addLine(v0, v1)
         # There will be a edge function such that edge corresponding
