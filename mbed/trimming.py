@@ -158,8 +158,7 @@ def edge_histogram(thing, nbins, tol=0.01):
     if isinstance(thing, df.Mesh):
         return edge_histogram(edge_lengths(thing), nbins)
 
-    if isinstance(thing, (df.MeshFunction, df.MeshFunctionBool, df.MeshFunctionSizet,
-                          df.MeshFunctionInt, df.MeshFunctionDouble)):
+    if hasattr(thing, 'mesh') and hasattr(thing, 'array'):
         f = df.Function(df.FunctionSpace(thing.mesh(), 'DG', 0))
         f.vector().set_local(np.fromiter(thing.array(), dtype=float))
         return edge_histogram(f, nbins)

@@ -45,7 +45,6 @@ def layer_neighbor_cell_generator(tagged_cells):
     yield previous_gen
     
     untagged_cells = set(np.where(values == 0)[0])
-
     while untagged_cells:
         # Collect vertices for computing
         # FIXME: not sure it is correct to only compute the neigbohors of
@@ -90,6 +89,7 @@ def layer_neighbor_vertex_generator(edge_f, nlayers=5):
     e2v = mesh.topology()(1, 0)
     # First layer - vertices that make up marked edges
     layer0 = set(np.concatenate(list(map(e2v, np.where(edge_f.array() == 1)[0]))))
+
     yield layer0
     nlayers -= 1
 
@@ -102,8 +102,7 @@ def layer_neighbor_vertex_generator(edge_f, nlayers=5):
     # For peeling
     layers = layer_neighbor_cell_generator(tagged_cells)
 
-    while nlayers:
-        layer_cells = next(layers)
+    for layer_cells in layers:
         layer_cells_as_vtx = set(np.concatenate(list(map(c2v, layer_cells))))
         # We keep those not connected to previous?
         layer0 = layer_cells_as_vtx - layer0
@@ -133,7 +132,6 @@ def curve_distance(edge_f, nlayers=4, outside_val=-1):
     # On curve is 0
     d_values[v2d[list(curve_points)]] = 0.
 
-
     x = mesh.coordinates()    
     # For others we need to compute distance from edges
     mesh.init(1, 0)
@@ -145,7 +143,8 @@ def curve_distance(edge_f, nlayers=4, outside_val=-1):
     line_mesh = make_line_mesh(x[vtx_idx], segments.reshape((-1, 2)))
     tree = line_mesh.bounding_box_tree()
 
-    for points in map(list, layers):
+    for points in layers:
+        points = list(points)
         d_values[v2d[points]] = np.fromiter((tree.compute_closest_entity(df.Point(x[p]))[1] for p in points),
                                             dtype=float)
     d.vector().set_local(d_values)

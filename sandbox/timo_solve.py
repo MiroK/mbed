@@ -9,7 +9,7 @@ df.parameters['ghost_mode'] = 'shared_vertex'
 embedding_folder = './rat_timo'
 
 mesh = df.Mesh()
-h5_file = df.HDF5File(mesh.mpi_comm(), .os.path.join(embedding_folder, 'mesh.h5'), 'r')
+h5_file = df.HDF5File(mesh.mpi_comm(), os.path.join(embedding_folder, 'mesh.h5'), 'r')
 h5_file.read(mesh, 'embedding_mesh', False)
 
 
